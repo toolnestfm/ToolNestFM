@@ -10,6 +10,7 @@ type UserRow = {
   email: string;
   plan: string;
   role: string;
+  credits: number;
   tools_used_today: number;
   created_at: string;
 };
@@ -60,6 +61,23 @@ export default function AdminUsersPage() {
     }
   };
 
+  const grantCredits = async (id: string) => {
+    const input = prompt('Credits to add (negative to deduct):', '100');
+    if (input === null) return;
+    const amount = Number(input);
+    if (!Number.isInteger(amount) || amount === 0) { toast('Enter a whole number', 'error'); return; }
+    try {
+      const data = await adminFetch<{ balance: number }>('/api/admin/credits', {
+        method: 'POST',
+        body: JSON.stringify({ userId: id, amount, note: 'Quick adjust from Users page' }),
+      });
+      toast(`Credits updated — new balance: ${data.balance}`, 'success');
+      void load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Credit update failed', 'error');
+    }
+  };
+
   return (
     <div>
       <header className="admin-header">
@@ -102,6 +120,7 @@ export default function AdminUsersPage() {
                   <th>User</th>
                   <th>Plan</th>
                   <th>Role</th>
+                  <th>Credits</th>
                   <th>Tools today</th>
                   <th>Joined</th>
                   <th>Actions</th>
@@ -135,6 +154,10 @@ export default function AdminUsersPage() {
                         <option value="ADMIN">ADMIN</option>
                         <option value="SUPER_ADMIN">SUPER_ADMIN</option>
                       </select>
+                    </td>
+                    <td>
+                      <b>{(u.credits ?? 0).toLocaleString()}</b>{' '}
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => void grantCredits(u.id)}>±</button>
                     </td>
                     <td>{u.tools_used_today}</td>
                     <td className="muted">{new Date(u.created_at).toLocaleDateString()}</td>

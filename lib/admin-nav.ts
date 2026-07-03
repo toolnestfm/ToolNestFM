@@ -34,9 +34,10 @@ export const adminNavSections: AdminNavSection[] = [
     title: 'Growth',
     items: [
       { href: '/admin/subscriptions', label: 'Subscriptions', icon: 'briefcase', description: 'Stripe subscriptions' },
+      { href: '/admin/credits', label: 'Credits', icon: 'zap', description: 'Grant credits & ledger' },
       { href: '/admin/pricing', label: 'Pricing', icon: 'crown', description: 'Plan limits & prices' },
       { href: '/admin/ads', label: 'Ads', icon: 'play', description: 'Ad zone toggles' },
-      { href: '/admin/api-keys', label: 'API Keys', icon: 'key', description: 'API key management' },
+      { href: '/admin/api-keys', label: 'API Keys', icon: 'key', description: 'All user API keys' },
     ],
   },
   {

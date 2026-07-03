@@ -1,4 +1,4 @@
-import { apiErr, apiOk } from '@/lib/api-response';
+import { apiOk } from '@/lib/api-response';
 import { requireAdmin } from '@/lib/admin-auth';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 

@@ -32,5 +32,8 @@ Thumbs.db
 next-env.d.ts
 *.tsbuildinfo
 
+# Claude
+.claude/
+
 # Vercel
 .vercel

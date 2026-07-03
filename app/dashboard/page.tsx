@@ -8,15 +8,19 @@ import { homepageToolSlugs, getTool } from '@/data/tools';
 export default function DashboardPage() {
   const { user } = useAuth();
   const [todayCount, setTodayCount] = useState(0);
+  const [credits, setCredits] = useState<number | null>(null);
   const recent = homepageToolSlugs.slice(0, 4).map((s) => getTool(s)).filter(Boolean);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/jobs');
-        const json = (await res.json()) as { success: boolean; data?: { todayCount: number } };
-        if (!cancelled && json.success) setTodayCount(json.data?.todayCount ?? 0);
+        const [jobsRes, creditsRes] = await Promise.all([fetch('/api/jobs'), fetch('/api/credits')]);
+        const jobs = (await jobsRes.json()) as { success: boolean; data?: { todayCount: number } };
+        const cr = (await creditsRes.json()) as { success: boolean; data?: { balance: number } };
+        if (cancelled) return;
+        if (jobs.success) setTodayCount(jobs.data?.todayCount ?? 0);
+        if (cr.success) setCredits(cr.data?.balance ?? 0);
       } catch {
         /* best-effort */
       }
@@ -44,6 +48,11 @@ export default function DashboardPage() {
         <div className="dash-stat glass">
           <span className="muted">Tools used today</span>
           <b>{todayCount} / {user?.plan === 'pro' || user?.plan === 'enterprise' ? '∞' : '5 per tool'}</b>
+        </div>
+        <div className="dash-stat glass">
+          <span className="muted">Credits</span>
+          <b>{credits === null ? '…' : `${credits.toLocaleString()} ⚡`}</b>
+          <Link href="/dashboard/credits" className="btn btn-sm btn-ghost mt-2">Get more</Link>
         </div>
       </div>
 

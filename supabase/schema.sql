@@ -161,3 +161,108 @@ create table if not exists public.admin_settings (
 
 alter table public.admin_settings enable row level security;
 -- Service-role only.
+
+-- ============================================================
+-- CREDITS SYSTEM — ToolNest API credits
+-- ============================================================
+
+-- Balance lives on the profile for fast reads; every change is ledgered.
+alter table public.profiles add column if not exists credits integer not null default 0;
+
+create table if not exists public.credit_ledger (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  amount integer not null,                        -- positive = grant, negative = spend
+  balance_after integer not null,
+  reason text not null,                           -- signup_bonus | admin_grant | admin_deduct | ai_chat | api_call | purchase
+  actor_id uuid references auth.users(id) on delete set null,  -- admin who granted, null = system/self
+  meta jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists credit_ledger_user_idx on public.credit_ledger (user_id, created_at desc);
+
+alter table public.credit_ledger enable row level security;
+
+drop policy if exists "credit_ledger_select_own" on public.credit_ledger;
+create policy "credit_ledger_select_own" on public.credit_ledger
+  for select using (auth.uid() = user_id);
+-- Inserts only via adjust_credits() / service role.
+
+-- Atomic credit adjustment: prevents double-spend and negative balances.
+create or replace function public.adjust_credits(
+  p_user_id uuid,
+  p_amount integer,
+  p_reason text,
+  p_actor uuid default null,
+  p_meta jsonb default '{}'::jsonb
+) returns integer
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  new_balance integer;
+begin
+  update public.profiles
+    set credits = credits + p_amount, updated_at = now()
+    where id = p_user_id and credits + p_amount >= 0
+    returning credits into new_balance;
+
+  if new_balance is null then
+    raise exception 'INSUFFICIENT_CREDITS';
+  end if;
+
+  insert into public.credit_ledger (user_id, amount, balance_after, reason, actor_id, meta)
+    values (p_user_id, p_amount, new_balance, p_reason, p_actor, p_meta);
+
+  return new_balance;
+end;
+$$;
+
+-- Only the service role (server) may adjust credits — never the browser.
+revoke execute on function public.adjust_credits(uuid, integer, text, uuid, jsonb) from public, anon, authenticated;
+
+-- ---------- API KEYS (ToolNest public API) ----------
+create table if not exists public.api_keys (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  key_hash text unique not null,                  -- sha256 of the full key; the key itself is never stored
+  prefix text not null,                           -- display prefix e.g. tn_live_ab12…
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists api_keys_user_idx on public.api_keys (user_id, created_at desc);
+
+alter table public.api_keys enable row level security;
+
+drop policy if exists "api_keys_select_own" on public.api_keys;
+create policy "api_keys_select_own" on public.api_keys
+  for select using (auth.uid() = user_id);
+-- Writes via service role only (creation returns the key once).
+
+-- ---------- SIGNUP BONUS ----------
+-- New users start with 25 free credits (replaces the old handle_new_user).
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name, avatar_url, credits)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name'),
+    new.raw_user_meta_data->>'avatar_url',
+    25
+  )
+  on conflict (id) do nothing;
+
+  insert into public.credit_ledger (user_id, amount, balance_after, reason)
+  values (new.id, 25, 25, 'signup_bonus');
+
+  return new;
+end;
+$$;

@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
   let query = admin
     .from('profiles')
-    .select('id, full_name, avatar_url, plan, role, tools_used_today, stripe_customer_id, stripe_subscription_id, created_at, updated_at', { count: 'exact' })
+    .select('id, full_name, avatar_url, plan, role, credits, tools_used_today, stripe_customer_id, stripe_subscription_id, created_at, updated_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(from, to);
 

@@ -1,13 +1,15 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { adjustCredits } from '@/lib/credits';
 
 /**
  * POST /api/billing/webhook — Stripe webhook handler.
  * Verifies the `stripe-signature` header (HMAC-SHA256) without the Stripe SDK.
  *
  * Handled events:
- *  - checkout.session.completed        → upgrade profile to PRO
- *  - customer.subscription.deleted     → downgrade profile to FREE
+ *  - checkout.session.completed (subscription) → upgrade profile to PRO
+ *  - checkout.session.completed (credits pack) → grant purchased credits
+ *  - customer.subscription.deleted             → downgrade profile to FREE
  */
 
 const TOLERANCE_SECONDS = 300;
@@ -37,9 +39,11 @@ interface StripeEvent {
   data: {
     object: {
       id?: string;
+      mode?: string;
       client_reference_id?: string | null;
       customer?: string | null;
       subscription?: string | null;
+      metadata?: Record<string, string> | null;
     };
   };
 }
@@ -67,18 +71,43 @@ export async function POST(req: Request) {
   const obj = event.data.object;
 
   if (event.type === 'checkout.session.completed' && obj.client_reference_id) {
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        plan: 'PRO',
-        stripe_customer_id: obj.customer ?? null,
-        stripe_subscription_id: obj.subscription ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', obj.client_reference_id);
-    if (error) {
-      console.error('[billing] upgrade failed:', error.message);
-      return Response.json({ error: 'Update failed' }, { status: 500 });
+    const isCreditsPurchase = obj.metadata?.type === 'credits';
+
+    if (isCreditsPurchase) {
+      const credits = Number(obj.metadata?.credits);
+      if (Number.isInteger(credits) && credits > 0 && obj.id) {
+        // Idempotency: Stripe retries webhooks — never grant the same session twice.
+        const { data: existing } = await supabase
+          .from('credit_ledger')
+          .select('id')
+          .eq('reason', 'purchase')
+          .eq('meta->>session_id', obj.id)
+          .maybeSingle();
+        if (!existing) {
+          try {
+            await adjustCredits(supabase, obj.client_reference_id, credits, 'purchase', undefined, {
+              session_id: obj.id,
+            });
+          } catch (err) {
+            console.error('[billing] credit grant failed:', err instanceof Error ? err.message : err);
+            return Response.json({ error: 'Credit grant failed' }, { status: 500 });
+          }
+        }
+      }
+    } else {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          plan: 'PRO',
+          stripe_customer_id: obj.customer ?? null,
+          stripe_subscription_id: obj.subscription ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', obj.client_reference_id);
+      if (error) {
+        console.error('[billing] upgrade failed:', error.message);
+        return Response.json({ error: 'Update failed' }, { status: 500 });
+      }
     }
   }
 

@@ -9,6 +9,8 @@ import { initials, isAdminUser } from '@/lib/auth';
 const nav = [
   { href: '/dashboard', label: 'Overview', icon: 'grid' },
   { href: '/dashboard/history', label: 'History', icon: 'clock' },
+  { href: '/dashboard/credits', label: 'Credits', icon: 'zap' },
+  { href: '/dashboard/api-keys', label: 'API Keys', icon: 'key' },
   { href: '/dashboard/billing', label: 'Billing', icon: 'briefcase' },
   { href: '/dashboard/settings', label: 'Settings', icon: 'settings' },
 ];

@@ -4,6 +4,8 @@ import { geminiStreamServer } from '@/lib/gemini/server';
 import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { adjustCredits, InsufficientCreditsError } from '@/lib/credits';
 
 const DEFAULT_SYSTEM =
   'You are ToolNest AI, a helpful assistant inside the ToolNest platform (toolnestfm.com) which offers 120+ online tools. Be concise and helpful.';
@@ -37,15 +39,31 @@ export async function POST(req: Request) {
   if (!burst.allowed) return rateLimitResponse(burst.retryAfterSeconds);
 
   // Daily quota — Pro/Enterprise unlimited, everyone else 10/day.
+  // Signed-in users past the free limit can keep going by spending 1 credit per message.
   const { userId, plan } = await getCallerPlan();
   if (plan !== 'PRO' && plan !== 'ENTERPRISE') {
     const identity = userId ? `user:${userId}` : `ip:${ip}`;
     const daily = rateLimit(`ai:daily:${identity}`, FREE_DAILY_LIMIT, DAY_MS);
     if (!daily.allowed) {
-      return apiErr(
-        'Daily free AI limit reached (10 messages). Upgrade to Pro for unlimited AI, or add your own Gemini API key in AI Settings.',
-        429,
-      );
+      const admin = userId ? createAdminClient() : null;
+      if (admin && userId) {
+        try {
+          await adjustCredits(admin, userId, -1, 'ai_chat');
+        } catch (err) {
+          if (err instanceof InsufficientCreditsError) {
+            return apiErr(
+              'Daily free AI limit reached and you have no credits left. Get credits at /dashboard/credits, upgrade to Pro, or add your own Gemini API key in AI Settings.',
+              429,
+            );
+          }
+          return apiErr('Credit check failed — try again', 500);
+        }
+      } else {
+        return apiErr(
+          'Daily free AI limit reached (10 messages). Sign in to use credits, upgrade to Pro, or add your own Gemini API key in AI Settings.',
+          429,
+        );
+      }
     }
   }
 

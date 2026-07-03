@@ -1,5 +1,5 @@
-import { apiErr, apiOk } from '@/lib/api-response';
-import { logAdminAction, requireAdmin } from '@/lib/admin-auth';
+import { apiOk } from '@/lib/api-response';
+import { requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
