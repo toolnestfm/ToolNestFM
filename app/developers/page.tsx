@@ -42,6 +42,42 @@ export default function DevelopersPage() {
         <li>Pass it on every request: <code>Authorization: Bearer tn_live_...</code></li>
       </ol>
 
+      <h2>Quickstart</h2>
+      <p><b>JavaScript / Node.js:</b></p>
+      <pre style={codeStyle}><code>{`const res = await fetch('https://toolnestfm.com/api/v1/chat', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer tn_live_YOUR_KEY',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    messages: [{ role: 'user', content: 'Explain JWT in one line' }],
+  }),
+});
+const { success, data, error } = await res.json();
+if (!success) throw new Error(error);
+console.log(data.reply, data.credits.remaining);`}</code></pre>
+
+      <p><b>Python:</b></p>
+      <pre style={codeStyle}><code>{`import requests
+
+res = requests.post(
+    "https://toolnestfm.com/api/v1/summarize",
+    headers={"Authorization": "Bearer tn_live_YOUR_KEY"},
+    json={"text": "<long text>", "length": "short"},
+)
+body = res.json()
+if not body["success"]:
+    raise RuntimeError(body["error"])
+print(body["data"]["summary"])`}</code></pre>
+
+      <h2>OpenAPI specification</h2>
+      <p>
+        A machine-readable OpenAPI 3.0 spec is available at{' '}
+        <a href="/api/v1/openapi.json"><code>GET /api/v1/openapi.json</code></a> — import it into
+        Postman, Insomnia, or generate a typed client with <code>openapi-generator</code>.
+      </p>
+
       <h2>Pricing</h2>
       <p>
         AI endpoints cost <b>1 credit per call</b>; utility endpoints are free (key required).

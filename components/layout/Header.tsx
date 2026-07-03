@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Icon from '../Icon';
 import { useUI } from '../GlobalUI';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -141,7 +142,7 @@ export default function Header() {
         </div>
       </div>
 
-      {menuOpen && (
+      {menuOpen && createPortal(
         <div className="mobile-menu-overlay" onClick={() => setMenuOpen(false)}>
           <div className="mobile-menu" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Menu">
             <div className="mobile-menu-head">
@@ -204,7 +205,8 @@ export default function Header() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <nav className={`nav-row ${navOpen ? '' : 'nav-collapsed'}`} aria-label="Primary">
