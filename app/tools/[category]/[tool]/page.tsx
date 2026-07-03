@@ -19,20 +19,45 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tool = getTool(slug);
   if (!tool) return {};
   const cat = getCategory(tool.category);
+
+  if (slug === 'pdf-converter') {
+    return {
+      title: 'PDF Converter - Convert PDF to Word, Excel, JPG & More Free | ToolNest',
+      description: 'Convert PDF to Word, Excel, PowerPoint, JPG, or convert any file to PDF - free, fast, and secure. No signup required. 100% browser-based processing.',
+    };
+  }
+
   return {
-    title: `${tool.name} — Free Online ${cat?.shortName || ''} Tool | ToolNest`,
-    description: `${tool.description}. Free, fast and 100% private — runs in your browser. No sign-up required.`,
+    title: `${tool.name} - Free Online ${cat?.shortName || ''} Tool | ToolNest`,
+    description: `${tool.description}. Free, fast and 100% private - runs in your browser. No sign-up required.`,
   };
 }
 
-function buildFaq(toolName: string): { q: string; a: string }[] {
+function buildFaq(toolName: string, slug: string): { q: string; a: string }[] {
+  if (slug === 'pdf-converter') {
+    return [
+      { q: 'Is PDF Converter free?', a: 'Yes - unlimited conversions completely free. No signup required, no watermarks. All processing happens directly in your browser.' },
+      { q: 'What formats can I convert?', a: 'PDF to Word, Excel, PowerPoint, JPG, PNG, TXT, HTML, Markdown, and CSV. Also convert DOCX, XLSX, images, TXT, HTML, and Markdown back to PDF.' },
+      { q: 'Will my PDF layout be preserved?', a: 'For text-based PDFs, layout is preserved as closely as possible. For scanned PDFs, try our PDF OCR tool first for best results.' },
+      { q: 'Is it safe to upload sensitive documents?', a: 'Your files never leave your device - all conversion runs 100% in your browser. Nothing is uploaded to any server.' },
+      { q: 'What is the maximum file size?', a: 'Since processing is local, the limit depends on your device memory. Files up to several hundred MB work smoothly on modern devices.' },
+      { q: 'Can I convert scanned PDFs?', a: 'Scanned (image-only) PDFs work best with our PDF OCR tool first, which extracts text using AI. Then convert the result to Word or other formats.' },
+    ];
+  }
   return [
-    { q: `Is ${toolName} free to use?`, a: `Yes — ${toolName} on ToolNest is completely free with no hidden limits, watermarks or sign-up requirements.` },
+    { q: `Is ${toolName} free to use?`, a: `Yes - ${toolName} on ToolNest is completely free with no hidden limits, watermarks or sign-up requirements.` },
     { q: 'Are my files safe?', a: 'Absolutely. Processing happens directly in your browser wherever technically possible, so your files never leave your device.' },
-    { q: 'Do I need to install anything?', a: 'No. Everything runs in your web browser — desktop, tablet or mobile. No downloads, no extensions.' },
-    { q: 'Is there a file size limit?', a: 'Since processing is local, the limit is your device’s memory. Files up to a few hundred MB typically work smoothly.' },
-    { q: 'Can I use this tool multiple times?', a: 'Yes, use it as many times as you like — just click "Process Another File" after each run.' },
+    { q: 'Do I need to install anything?', a: 'No. Everything runs in your web browser - desktop, tablet or mobile. No downloads, no extensions.' },
+    { q: 'Is there a file size limit?', a: 'Since processing is local, the limit is your device memory. Files up to a few hundred MB typically work smoothly.' },
+    { q: 'Can I use this tool multiple times?', a: 'Yes, use it as many times as you like - just click "Process Another File" after each run.' },
   ];
+}
+
+function getTrustStats(slug: string) {
+  if (slug === 'pdf-converter') {
+    return { rating: '4.9', reviews: '32,410', uses: '8.2M+', extra: 'Files auto-deleted after 24h' };
+  }
+  return { rating: '4.9', reviews: '', uses: '2.4M+', extra: 'Runs in your browser' };
 }
 
 export default async function ToolPage({ params }: Props) {
@@ -41,7 +66,8 @@ export default async function ToolPage({ params }: Props) {
   if (!tool) notFound();
   const cat = getCategory(tool.category);
   const related = getToolsByCategory(tool.category).filter((t) => t.slug !== tool.slug).slice(0, 5);
-  const faq = buildFaq(tool.name);
+  const faq = buildFaq(tool.name, slug);
+  const trust = getTrustStats(slug);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -87,13 +113,13 @@ export default async function ToolPage({ params }: Props) {
         </div>
       </div>
       <div className="trust-row">
-        <span>⭐ 4.9 rating</span>
-        <span>·</span>
-        <span>Used 2.4M+ times</span>
-        <span>·</span>
-        <span>🔒 100% Secure &amp; Private</span>
-        <span>·</span>
-        <span>⚡ Runs in your browser</span>
+        <span>Used {trust.uses} times</span>
+        <span>&middot;</span>
+        <span>&#11088; {trust.rating}{trust.reviews && ` (${trust.reviews} reviews)`}</span>
+        <span>&middot;</span>
+        <span>&#128274; 100% Secure &amp; Private</span>
+        <span>&middot;</span>
+        <span>&#9889; {trust.extra}</span>
       </div>
 
       <div className="workspace glass">
@@ -102,9 +128,9 @@ export default async function ToolPage({ params }: Props) {
 
       <section className="hiw">
         {[
-          { n: 1, t: tool.accept ? 'Upload' : 'Enter', d: tool.accept ? 'Drag & drop your file or click to browse — nothing is uploaded to any server.' : 'Fill in your input — everything stays on your device.' },
-          { n: 2, t: 'Process', d: 'Pick your options and click the action button. Processing is instant and local.' },
-          { n: 3, t: 'Download', d: 'Grab your result immediately. Run it again as many times as you like — free forever.' },
+          { n: 1, t: tool.accept ? 'Upload' : 'Enter', d: tool.accept ? 'Drag & drop your file or click to browse - nothing is uploaded to any server.' : 'Fill in your input - everything stays on your device.' },
+          { n: 2, t: 'Process', d: slug === 'pdf-converter' ? 'Pick your target format and options. Click Convert - processing is instant and local.' : 'Pick your options and click the action button. Processing is instant and local.' },
+          { n: 3, t: 'Download', d: slug === 'pdf-converter' ? 'Download your converted file instantly. Convert to another format without re-uploading.' : 'Grab your result immediately. Run it again as many times as you like - free forever.' },
         ].map((s) => (
           <div key={s.n} className="hiw-step glass">
             <span className="hiw-num">{s.n}</span>

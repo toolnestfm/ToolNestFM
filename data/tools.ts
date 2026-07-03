@@ -4,6 +4,7 @@ export type RunnerKind =
   | 'ocr'
   | 'pdf'
   | 'pdf-convert'
+  | 'pdf-converter'
   | 'ffmpeg'
   | 'speech'
   | 'ai-text'
@@ -54,7 +55,7 @@ export const tools: Tool[] = [
   { id: 8, slug: 'exam-photo-signature-resizer', name: 'Exam Photo & Signature Resizer', description: 'SSC, UPSC, IBPS, NEET compliant photo & signature', category: 'government', icon: 'user-square', runner: 'image', mode: 'gov-photo', accept: IMG, config: { presets: [ { label: 'SSC Photo (100–120KB, 3.5×4.5 cm)', w: 413, h: 531, kb: 110 }, { label: 'SSC Signature (4×2 cm, ≤20KB)', w: 472, h: 236, kb: 20 }, { label: 'UPSC Photo (350×350 px, ≤300KB)', w: 350, h: 350, kb: 300 }, { label: 'IBPS Photo (200×230 px, ≤50KB)', w: 200, h: 230, kb: 50 }, { label: 'IBPS Signature (140×60 px, ≤20KB)', w: 140, h: 60, kb: 20 }, { label: 'NEET Photo (Postcard 4×6 in, ≤200KB)', w: 1200, h: 1800, kb: 200 } ] } },
 
   // ─── 📄 PDF Tools (12 + 2 aliases) ─────────────────────────────────────
-  { id: 9, slug: 'pdf-converter', name: 'PDF Converter', description: 'Convert images and documents to PDF and back', category: 'pdf', icon: 'file-text', badge: 'popular', runner: 'pdf', mode: 'convert', accept: `${IMG},${PDF}`, multiple: true },
+  { id: 9, slug: 'pdf-converter', name: 'PDF Converter', description: 'Convert PDF to Word, Excel, PowerPoint, Images and more — or convert any file to PDF', category: 'pdf', icon: 'file-text', badge: 'popular', runner: 'pdf-converter', mode: 'smart', accept: `${IMG},${PDF},.docx,.xlsx,.xls,.csv,.txt,.md,.html`, multiple: true, keywords: ['convert', 'pdf to word', 'pdf to excel', 'pdf to jpg', 'word to pdf', 'image to pdf', 'pdf to png', 'pdf to text', 'pdf to pptx'] },
   { id: 10, slug: 'pdf-editor', name: 'PDF Editor', description: 'Add text, annotations and page numbers to PDFs', category: 'pdf', icon: 'file-pen', runner: 'pdf', mode: 'edit', accept: PDF },
   { id: 11, slug: 'merge-pdf', name: 'Merge PDF', description: 'Merge multiple PDF files into one document', category: 'pdf', icon: 'merge', badge: 'popular', runner: 'pdf', mode: 'merge', accept: PDF, multiple: true },
   { id: 12, slug: 'split-pdf', name: 'Split PDF', description: 'Split a PDF into separate pages or ranges', category: 'pdf', icon: 'split', runner: 'pdf', mode: 'split', accept: PDF },

@@ -150,7 +150,10 @@ export default function ApiKeysPage() {
 
       <div className="glass settings-block">
         <h3>Quick start</h3>
-        <p className="muted mb-2">POST /api/v1/chat — AI chat completion (1 credit). GET /api/v1/me — balance check (free).</p>
+        <p className="muted mb-2">
+          AI: /api/v1/chat, /summarize, /translate, /write (1 credit each) · Free: /qr, /hash, /uuid, /me, /usage —{' '}
+          <a href="/developers">full API documentation →</a>
+        </p>
         <pre style={{ overflowX: 'auto', padding: 12, fontSize: 13 }}><code>{curlExample}</code></pre>
       </div>
     </div>

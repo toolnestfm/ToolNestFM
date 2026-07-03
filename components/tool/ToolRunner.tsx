@@ -13,6 +13,7 @@ const BgRemoveRunner = dynamic(() => import('./runners/BgRemoveRunner'), { ssr: 
 const OcrRunner = dynamic(() => import('./runners/OcrRunner'), { ssr: false, loading });
 const PdfRunner = dynamic(() => import('./runners/PdfRunner'), { ssr: false, loading });
 const PdfConvertRunner = dynamic(() => import('./runners/PdfConvertRunner'), { ssr: false, loading });
+const PdfConverterAdvanced = dynamic(() => import('./runners/PdfConverterAdvanced'), { ssr: false, loading });
 const FfmpegRunner = dynamic(() => import('./runners/FfmpegRunner'), { ssr: false, loading });
 const SpeechRunner = dynamic(() => import('./runners/SpeechRunner'), { ssr: false, loading });
 const AiTextRunner = dynamic(() => import('./runners/AiTextRunner'), { ssr: false, loading });
@@ -41,6 +42,7 @@ export default function ToolRunner({ tool }: { tool: Tool }) {
     case 'ocr': return <OcrRunner tool={tool} />;
     case 'pdf': return <PdfRunner tool={tool} />;
     case 'pdf-convert': return <PdfConvertRunner tool={tool} />;
+    case 'pdf-converter': return <PdfConverterAdvanced tool={tool} />;
     case 'ffmpeg': return <FfmpegRunner tool={tool} />;
     case 'speech': return <SpeechRunner tool={tool} />;
     case 'ai-text': return <AiTextRunner tool={tool} />;

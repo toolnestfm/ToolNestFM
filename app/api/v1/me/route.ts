@@ -1,26 +1,21 @@
-import { apiErr, apiOk } from '@/lib/api-response';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { authenticateApiKey, getBalance } from '@/lib/credits';
-import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rate-limit';
+import { apiOk } from '@/lib/api-response';
+import { requireApiKey } from '@/lib/api-v1';
+import { getBalance } from '@/lib/credits';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/v1/me — key info + credit balance. Free (no credits charged).
- * Auth: Authorization: Bearer tn_live_...
+ * GET /api/v1/me — key info + credit balance. Free (API key required).
  */
 export async function GET(req: Request) {
-  const rl = rateLimit(`v1me:${clientIp(req)}`, 60, 60_000);
-  if (!rl.allowed) return rateLimitResponse(rl.retryAfterSeconds);
-
-  const admin = createAdminClient();
-  if (!admin) return apiErr('API is not configured', 503);
-
-  const auth = await authenticateApiKey(admin, req);
-  if (!auth) {
-    return apiErr('Invalid or revoked API key. Pass it as: Authorization: Bearer tn_live_...', 401);
-  }
+  const gate = await requireApiKey(req, 60);
+  if (!gate.ok) return gate.response;
+  const { admin, auth } = gate.ctx;
 
   const balance = await getBalance(admin, auth.userId);
-  return apiOk({ keyId: auth.keyId, credits: balance, pricing: { chat: 1 } });
+  return apiOk({
+    keyId: auth.keyId,
+    credits: balance,
+    pricing: { chat: 1, summarize: 1, translate: 1, write: 1, qr: 0, hash: 0, uuid: 0, tools: 0, usage: 0 },
+  });
 }
