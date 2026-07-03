@@ -1,8 +1,8 @@
-/** Canonical app URL for OAuth redirects (Vercel production or local dev). */
+/** Canonical app URL — always prefer the live request origin so PKCE cookies match the callback domain. */
 export function getAppOrigin(fallbackOrigin?: string): string {
+  if (fallbackOrigin) return fallbackOrigin.replace(/\/$/, '');
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '');
   if (fromEnv) return fromEnv;
-  if (fallbackOrigin) return fallbackOrigin.replace(/\/$/, '');
   return 'http://localhost:3000';
 }
 

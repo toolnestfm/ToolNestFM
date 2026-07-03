@@ -1,0 +1,16 @@
+HTTP/1.1 307 Temporary Redirect
+Age: 0
+Cache-Control: public, max-age=0, must-revalidate
+Content-Length: 0
+Cross-Origin-Embedder-Policy: credentialless
+Cross-Origin-Opener-Policy: same-origin
+Date: Fri, 03 Jul 2026 09:53:17 GMT
+Location: https://xtmcsndjbgalovoqipmb.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Ftoolnestfm.vercel.app%2Fauth%2Fcallback%3Fnext%3D%252Fdashboard&code_challenge=r2QkTbFOnxYORGEAv2oICgFDNzAhL-y2XPBoIU58xL0&code_challenge_method=s256
+Server: Vercel
+Set-Cookie: sb-xtmcsndjbgalovoqipmb-auth-token-code-verifier=base64-ImYwNDg5Mzc4NzE0ZWRhOGMxOWE5MDVlY2VhODNkMjMzNGNkYzg3OTA3ODA4YTA3MDE5ZWQ1NTE0ODdiN2RjNTRiYzllYzAyNDdiYjJkYTliMjdhZmI2NGRhMmJiNjQzOGM2OTdiYTA0YTU3NDVjNTEi; Path=/; Expires=Sat, 07 Aug 2027 09:53:17 GMT; Max-Age=34560000; Secure; SameSite=lax
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+Vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch, Next-Router-Segment-Prefetch
+X-Matched-Path: /auth/oauth
+X-Vercel-Cache: MISS
+X-Vercel-Id: bom1::iad1::fq4hw-1783072396916-675b16a5470c
+

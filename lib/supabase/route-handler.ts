@@ -1,41 +1,37 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { type NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getSupabaseEnv } from './env';
 
 type PendingCookie = { name: string; value: string; options: CookieOptions };
 
-/** Supabase client for Route Handlers — PKCE verifier stored in httpOnly cookies. */
-export function createRouteHandlerClient(request: NextRequest) {
+/** Supabase client for Route Handlers — uses next/headers cookies (required for PKCE on Next.js 15). */
+export async function createRouteHandlerClient() {
   const env = getSupabaseEnv();
   if (!env) throw new Error('Missing Supabase environment variables.');
 
-  const pending = new Map<string, PendingCookie>();
+  const cookieStore = await cookies();
 
   const supabase = createServerClient(env.url, env.anonKey, {
     cookies: {
       getAll() {
-        return request.cookies.getAll();
+        return cookieStore.getAll();
       },
       setAll(cookiesToSet: PendingCookie[]) {
-        cookiesToSet.forEach((cookie) => {
-          request.cookies.set(cookie.name, cookie.value);
-          pending.set(cookie.name, cookie);
+        cookiesToSet.forEach(({ name, value, options }) => {
+          try {
+            cookieStore.set(name, value, {
+              ...options,
+              path: options?.path ?? '/',
+              sameSite: options?.sameSite ?? 'lax',
+              secure: options?.secure ?? process.env.NODE_ENV === 'production',
+            });
+          } catch {
+            /* cookieStore.set can throw when called from a Server Component context */
+          }
         });
       },
     },
   });
 
-  function applyCookies<T extends NextResponse>(response: T): T {
-    pending.forEach(({ name, value, options }) => {
-      response.cookies.set(name, value, {
-        ...options,
-        path: options?.path ?? '/',
-        sameSite: options?.sameSite ?? 'lax',
-        secure: options?.secure ?? process.env.NODE_ENV === 'production',
-      });
-    });
-    return response;
-  }
-
-  return { supabase, applyCookies };
+  return { supabase };
 }

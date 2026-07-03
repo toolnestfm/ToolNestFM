@@ -9,7 +9,7 @@ function isProvider(value: string | null): value is Provider {
   return PROVIDERS.includes(value as Provider);
 }
 
-/** Start OAuth on the server so PKCE verifier is stored in cookies (required for SSR). */
+/** Legacy server OAuth entry — prefer client-side startOAuth() on login/signup pages. */
 export async function GET(request: NextRequest) {
   const origin = getAppOrigin(request.nextUrl.origin);
   const provider = request.nextUrl.searchParams.get('provider');
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent('Invalid OAuth provider')}`);
   }
 
-  const { supabase, applyCookies } = createRouteHandlerClient(request);
+  const { supabase } = await createRouteHandlerClient();
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
@@ -34,5 +34,5 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return applyCookies(NextResponse.redirect(data.url));
+  return NextResponse.redirect(data.url);
 }

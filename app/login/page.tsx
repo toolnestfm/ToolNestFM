@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
+import { startOAuth } from '@/lib/auth-oauth';
 import { createClient } from '@/lib/supabase/client';
 
 function LoginForm() {
@@ -41,6 +42,17 @@ function LoginForm() {
     router.refresh();
   };
 
+  const oauth = async (provider: 'google' | 'github') => {
+    setBusy(true);
+    try {
+      await startOAuth(provider, redirect);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'OAuth sign-in failed';
+      toast(message, 'error');
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="container auth-page">
       <div className="auth-card glass">
@@ -64,8 +76,8 @@ function LoginForm() {
         </form>
         <div className="auth-divider"><span>or continue with</span></div>
         <div className="auth-oauth">
-          <a className="btn btn-ghost" href={`/auth/oauth?provider=google&next=${encodeURIComponent(redirect)}`}>Google</a>
-          <a className="btn btn-ghost" href={`/auth/oauth?provider=github&next=${encodeURIComponent(redirect)}`}>GitHub</a>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void oauth('google')}>Google</button>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void oauth('github')}>GitHub</button>
         </div>
         <p className="auth-foot muted">No account? <Link href="/signup">Sign up free</Link></p>
       </div>

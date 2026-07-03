@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=missing_auth_code`);
   }
 
-  const { supabase, applyCookies } = createRouteHandlerClient(request);
+  const { supabase } = await createRouteHandlerClient();
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
@@ -46,5 +46,5 @@ export async function GET(request: NextRequest) {
   );
 
   const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
-  return applyCookies(NextResponse.redirect(`${origin}${safeNext}`));
+  return NextResponse.redirect(`${origin}${safeNext}`);
 }

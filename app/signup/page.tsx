@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
+import { startOAuth } from '@/lib/auth-oauth';
 import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
@@ -14,6 +15,17 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const oauth = async (provider: 'google' | 'github') => {
+    setBusy(true);
+    try {
+      await startOAuth(provider, '/dashboard');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'OAuth sign-up failed';
+      toast(message, 'error');
+      setBusy(false);
+    }
+  };
 
   const signup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,8 +81,8 @@ export default function SignupPage() {
         </form>
         <div className="auth-divider"><span>or continue with</span></div>
         <div className="auth-oauth">
-          <a className="btn btn-ghost" href="/auth/oauth?provider=google&next=%2Fdashboard">Google</a>
-          <a className="btn btn-ghost" href="/auth/oauth?provider=github&next=%2Fdashboard">GitHub</a>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void oauth('google')}>Google</button>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void oauth('github')}>GitHub</button>
         </div>
         <p className="auth-foot muted">By signing up you agree to our <Link href="/terms-of-service">Terms</Link> and <Link href="/privacy-policy">Privacy Policy</Link>.</p>
         <p className="auth-foot muted">Already have an account? <Link href="/login">Sign in</Link></p>
