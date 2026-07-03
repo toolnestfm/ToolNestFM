@@ -6,6 +6,7 @@ import { useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
 import { createClient } from '@/lib/supabase/client';
+import { getAuthCallbackUrl } from '@/lib/supabase/auth-url';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -46,7 +47,7 @@ export default function SignupPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+      options: { redirectTo: getAuthCallbackUrl(window.location.origin, '/dashboard') },
     });
     if (error) toast(error.message, 'error');
   };

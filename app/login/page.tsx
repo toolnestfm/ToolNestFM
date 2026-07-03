@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
 import { createClient } from '@/lib/supabase/client';
+import { getAuthCallbackUrl } from '@/lib/supabase/auth-url';
 
 function LoginForm() {
   const router = useRouter();
@@ -16,6 +17,11 @@ function LoginForm() {
   const [busy, setBusy] = useState(false);
 
   const redirect = searchParams.get('redirect') || '/dashboard';
+  const urlError = searchParams.get('error');
+
+  useEffect(() => {
+    if (urlError) toast(decodeURIComponent(urlError), 'error');
+  }, [urlError, toast]);
 
   const login = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +44,10 @@ function LoginForm() {
 
   const oauth = async (provider: 'google' | 'github') => {
     const supabase = createClient();
+    const callbackUrl = getAuthCallbackUrl(window.location.origin, redirect);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
-      },
+      options: { redirectTo: callbackUrl },
     });
     if (error) toast(error.message, 'error');
   };
