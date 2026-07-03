@@ -20,10 +20,12 @@ export type PricingConfig = {
 };
 
 export type AdsConfig = {
-  homepageBanner: boolean;
-  toolPageSidebar: boolean;
-  betweenToolCards: boolean;
-  dashboardBanner: boolean;
+  ad_header: boolean;
+  ad_sidebar: boolean;
+  ad_home_inline: boolean;
+  ad_footer: boolean;
+  ad_tool_bottom: boolean;
+  ad_blog: boolean;
 };
 
 export type SiteSettings = {
@@ -71,10 +73,12 @@ export const defaultAdminSettings: AdminSettings = {
     freeFileSizeMb: 25,
   },
   ads: {
-    homepageBanner: false,
-    toolPageSidebar: false,
-    betweenToolCards: true,
-    dashboardBanner: false,
+    ad_header: false,
+    ad_sidebar: true,
+    ad_home_inline: true,
+    ad_footer: true,
+    ad_tool_bottom: true,
+    ad_blog: false,
   },
   site: {
     siteName: 'ToolNest',

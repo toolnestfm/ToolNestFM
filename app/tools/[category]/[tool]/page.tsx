@@ -5,6 +5,7 @@ import Icon from '@/components/Icon';
 import ToolCard from '@/components/ToolCard';
 import ToolRunner from '@/components/tool/ToolRunner';
 import FeatureStrip from '@/components/homepage/FeatureStrip';
+import ToolPageAds, { ToolPageSidebarAds } from '@/components/ads/ToolPageAds';
 import { getCategory } from '@/data/categories';
 import { getTool, getToolsByCategory, tools } from '@/data/tools';
 
@@ -122,8 +123,16 @@ export default async function ToolPage({ params }: Props) {
         <span>&#9889; {trust.extra}</span>
       </div>
 
-      <div className="workspace glass">
-        <ToolRunner tool={tool} />
+      <div className="tool-page-layout">
+        <div className="tool-page-main">
+          <div className="workspace glass">
+            <ToolRunner tool={tool} />
+          </div>
+          <ToolPageAds />
+        </div>
+        <aside className="tool-page-sidebar-ads">
+          <ToolPageSidebarAds />
+        </aside>
       </div>
 
       <section className="hiw">
