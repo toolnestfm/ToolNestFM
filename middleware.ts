@@ -17,6 +17,7 @@ export const config = {
   matcher: [
     '/',
     '/auth/callback',
+    '/auth/oauth',
     '/dashboard/:path*',
     '/login',
     '/signup',

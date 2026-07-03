@@ -6,7 +6,6 @@ import { Suspense, useEffect, useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
 import { createClient } from '@/lib/supabase/client';
-import { getAuthCallbackUrl } from '@/lib/supabase/auth-url';
 
 function LoginForm() {
   const router = useRouter();
@@ -42,16 +41,6 @@ function LoginForm() {
     router.refresh();
   };
 
-  const oauth = async (provider: 'google' | 'github') => {
-    const supabase = createClient();
-    const callbackUrl = getAuthCallbackUrl(window.location.origin, redirect);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: callbackUrl },
-    });
-    if (error) toast(error.message, 'error');
-  };
-
   return (
     <div className="container auth-page">
       <div className="auth-card glass">
@@ -75,8 +64,8 @@ function LoginForm() {
         </form>
         <div className="auth-divider"><span>or continue with</span></div>
         <div className="auth-oauth">
-          <button type="button" className="btn btn-ghost" onClick={() => void oauth('google')}>Google</button>
-          <button type="button" className="btn btn-ghost" onClick={() => void oauth('github')}>GitHub</button>
+          <a className="btn btn-ghost" href={`/auth/oauth?provider=google&next=${encodeURIComponent(redirect)}`}>Google</a>
+          <a className="btn btn-ghost" href={`/auth/oauth?provider=github&next=${encodeURIComponent(redirect)}`}>GitHub</a>
         </div>
         <p className="auth-foot muted">No account? <Link href="/signup">Sign up free</Link></p>
       </div>

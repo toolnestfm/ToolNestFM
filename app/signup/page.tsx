@@ -6,7 +6,6 @@ import { useState } from 'react';
 import Icon from '@/components/Icon';
 import { useUI } from '@/components/GlobalUI';
 import { createClient } from '@/lib/supabase/client';
-import { getAuthCallbackUrl } from '@/lib/supabase/auth-url';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -43,15 +42,6 @@ export default function SignupPage() {
     router.refresh();
   };
 
-  const oauth = async (provider: 'google' | 'github') => {
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: getAuthCallbackUrl(window.location.origin, '/dashboard') },
-    });
-    if (error) toast(error.message, 'error');
-  };
-
   return (
     <div className="container auth-page">
       <div className="auth-card glass">
@@ -79,8 +69,8 @@ export default function SignupPage() {
         </form>
         <div className="auth-divider"><span>or continue with</span></div>
         <div className="auth-oauth">
-          <button type="button" className="btn btn-ghost" onClick={() => void oauth('google')}>Google</button>
-          <button type="button" className="btn btn-ghost" onClick={() => void oauth('github')}>GitHub</button>
+          <a className="btn btn-ghost" href="/auth/oauth?provider=google&next=%2Fdashboard">Google</a>
+          <a className="btn btn-ghost" href="/auth/oauth?provider=github&next=%2Fdashboard">GitHub</a>
         </div>
         <p className="auth-foot muted">By signing up you agree to our <Link href="/terms-of-service">Terms</Link> and <Link href="/privacy-policy">Privacy Policy</Link>.</p>
         <p className="auth-foot muted">Already have an account? <Link href="/login">Sign in</Link></p>
