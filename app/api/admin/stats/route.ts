@@ -12,7 +12,7 @@ export async function GET() {
     usersRes,
     jobsRes,
     subsRes,
-    contactRes,
+    contactNewRes,
     eventsRes,
     searchRes,
     jobsTodayRes,
@@ -27,6 +27,11 @@ export async function GET() {
     admin.from('jobs').select('id', { count: 'exact', head: true }).gte('created_at', startOfToday()),
     admin.from('profiles').select('id', { count: 'exact', head: true }).in('plan', ['PRO', 'ENTERPRISE']),
   ]);
+
+  let contactRes = contactNewRes;
+  if (contactNewRes.error) {
+    contactRes = await admin.from('contact_messages').select('id', { count: 'exact', head: true });
+  }
 
   const { data: recentJobs } = await admin
     .from('jobs')

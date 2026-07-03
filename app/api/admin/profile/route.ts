@@ -1,5 +1,5 @@
 import { apiErr, apiOk } from '@/lib/api-response';
-import { logAdminAction, requireAdmin } from '@/lib/admin-auth';
+import { listAdminAuditLogs, logAdminAction, requireAdmin } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,18 +16,13 @@ export async function GET() {
 
   const { data: authUser } = await admin.auth.admin.getUserById(userId);
 
-  const { data: recentActivity } = await admin
-    .from('admin_audit_log')
-    .select('id, action, target, meta, created_at')
-    .eq('actor_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(8);
+  const activity = await listAdminAuditLogs(admin, { page: 1, limit: 8, actorId: userId });
 
   return apiOk({
     profile: profile ?? null,
     email: authUser?.user?.email ?? '',
     lastSignIn: authUser?.user?.last_sign_in_at ?? null,
-    recentActivity: recentActivity ?? [],
+    recentActivity: activity.logs,
   });
 }
 
