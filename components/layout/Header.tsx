@@ -8,7 +8,7 @@ import { useUI } from '../GlobalUI';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { categories } from '@/data/categories';
 import { searchTools } from '@/data/tools';
-import { initials } from '@/lib/auth';
+import { initials, isAdminUser } from '@/lib/auth';
 
 const navLinks: { label: string; href: string; badge?: string }[] = [
   { label: 'Home', href: '/' },
@@ -92,13 +92,20 @@ export default function Header() {
             <span className="notif-dot">3</span>
           </button>
           {user ? (
-            <Link href="/dashboard" className="user-chip">
+            <>
+              {isAdminUser(user) && (
+                <Link href="/admin" className="btn btn-ghost btn-sm admin-header-link">
+                  <Icon name="crown" size={14} /> Admin
+                </Link>
+              )}
+              <Link href="/dashboard" className="user-chip">
               <span className="user-avatar">{initials(user.fullName)}</span>
               <span className="user-meta">
                 <span className="user-name">{user.fullName}</span>
                 {(user.plan === 'pro' || user.plan === 'enterprise') && <span className="pill pill-pro">PRO</span>}
               </span>
             </Link>
+            </>
           ) : (
             <Link href="/login" className="btn btn-ghost btn-sm">Sign in</Link>
           )}

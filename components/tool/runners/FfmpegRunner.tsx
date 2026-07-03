@@ -5,24 +5,27 @@ import type { Tool } from '@/data/tools';
 import { FileDrop, Processing, ErrorBox, ResultView, useToolPhase, type ResultFile } from '../shared';
 import { replaceExt } from '@/lib/download';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let ffmpegInstance: any = null;
+import type { FFmpeg } from '@ffmpeg/ffmpeg';
 
-async function getFFmpeg(onProgress: (p: number) => void) {
+let ffmpegInstance: FFmpeg | null = null;
+
+async function getFFmpeg(onProgress: (p: number) => void): Promise<FFmpeg> {
   const { FFmpeg } = await import('@ffmpeg/ffmpeg');
   const { toBlobURL } = await import('@ffmpeg/util');
-  if (!ffmpegInstance) {
-    ffmpegInstance = new FFmpeg();
+  let instance = ffmpegInstance;
+  if (!instance) {
+    instance = new FFmpeg();
     const base = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
-    await ffmpegInstance.load({
+    await instance.load({
       coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
       wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
     });
+    ffmpegInstance = instance;
   }
-  ffmpegInstance.on('progress', ({ progress }: { progress: number }) => {
+  instance.on('progress', ({ progress }: { progress: number }) => {
     if (progress >= 0 && progress <= 1) onProgress(progress);
   });
-  return ffmpegInstance;
+  return instance;
 }
 
 const videoFormats = ['mp4', 'webm', 'avi', 'mov', 'mkv'];

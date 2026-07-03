@@ -5,6 +5,8 @@
   "description": "ToolNest — One Platform. Infinite Tools. Powered by AI.",
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "node -e \"const fs=require('fs');['.next','node_modules/.cache'].forEach(p=>fs.rmSync(p,{recursive:true,force:true}))\" && next dev",
+    "admin:bootstrap": "node scripts/bootstrap-admin.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
@@ -35,6 +37,8 @@
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.1.11",
     "typescript": "^5.7.0"
   }
 }

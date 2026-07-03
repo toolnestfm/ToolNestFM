@@ -1,12 +1,28 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { homepageToolSlugs, getTool } from '@/data/tools';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [todayCount, setTodayCount] = useState(0);
   const recent = homepageToolSlugs.slice(0, 4).map((s) => getTool(s)).filter(Boolean);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/jobs');
+        const json = (await res.json()) as { success: boolean; data?: { todayCount: number } };
+        if (!cancelled && json.success) setTodayCount(json.data?.todayCount ?? 0);
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const storagePct = user ? Math.round((user.storageUsedMb / user.storageLimitMb) * 100) : 0;
 
   return (
@@ -27,7 +43,7 @@ export default function DashboardPage() {
         </div>
         <div className="dash-stat glass">
           <span className="muted">Tools used today</span>
-          <b>0 / {user?.plan === 'pro' || user?.plan === 'enterprise' ? '∞' : '5 per tool'}</b>
+          <b>{todayCount} / {user?.plan === 'pro' || user?.plan === 'enterprise' ? '∞' : '5 per tool'}</b>
         </div>
       </div>
 

@@ -63,19 +63,42 @@ Adding a tool = add one entry in `data/tools.ts` → it automatically appears in
 | Route | Method | Purpose |
 |---|---|---|
 | `/api/health` | GET | Uptime / status check |
-| `/api/search?q=` | GET | Fuzzy search across all tools |
+| `/api/search?q=` | GET | Fuzzy search across all tools (+ query logging) |
 | `/api/tools` | GET | List tools (filter by category, sort) |
-| `/api/newsletter/subscribe` | POST | Newsletter signup |
+| `/api/tools/[toolId]` | GET | Single tool metadata |
+| `/api/jobs` | GET/POST | Signed-in user's tool history (record + list) |
+| `/api/newsletter/subscribe` | POST | Newsletter signup → Supabase |
+| `/api/newsletter/unsubscribe` | POST | Newsletter opt-out (+ `/unsubscribe` page) |
+| `/api/account/delete` | POST | Permanent account deletion (GDPR) |
+| `/api/contact` | POST | Contact form → Supabase |
+| `/api/analytics/track` | POST | Fire-and-forget event tracking |
+| `/api/ai/chat` | POST | Streaming Gemini chat (rate-limited; free 10/day, Pro unlimited) |
+| `/api/billing/checkout` | POST | Stripe Checkout session (Pro upgrade) |
+| `/api/billing/webhook` | POST | Stripe webhook (plan upgrade/downgrade) |
 | `/api/seo/analyze` | POST | SEO Analyzer backend |
 | `/api/security/ssl` | POST | SSL Checker backend |
 | `/api/security/scan` | POST | URL Scanner backend |
 | `/api/social/instagram` | GET | Instagram DP fetch |
 
+## 🗄 Database setup (Supabase)
+
+1. Create a project at supabase.com → copy URL + anon key + service-role key into `.env.local`
+2. Open **SQL Editor** and run [`supabase/schema.sql`](supabase/schema.sql) — creates `profiles` (auto-created on signup via trigger), `jobs`, `newsletter_subscribers`, `contact_messages`, `search_logs`, `analytics_events`, all with Row Level Security
+3. Enable Google/GitHub OAuth providers in Supabase Auth settings (optional)
+
+Everything degrades gracefully — without Supabase env vars the app still runs (auth-dependent features simply stay off).
+
+## 💳 Stripe setup (Pro billing)
+
+1. Create a Product + monthly Price in Stripe → set `STRIPE_PRICE_ID_PRO_MONTHLY`
+2. Set `STRIPE_SECRET_KEY`, and add a webhook endpoint pointing to `/api/billing/webhook` (events: `checkout.session.completed`, `customer.subscription.deleted`) → set `STRIPE_WEBHOOK_SECRET`
+3. Upgrade button on `/dashboard/billing` then goes live automatically
+
 ## 👤 Auth & Dashboard
 
-- `/login` · `/signup` — client-side auth (localStorage demo; wire to Supabase Auth in production)
-- `/dashboard` — overview, storage, quick-access tools
-- `/dashboard/history` · `/billing` · `/settings` — account management
+- `/login` · `/signup` — Supabase Auth (email/password + OAuth)
+- `/dashboard` — overview, storage, tools-used-today (live from `jobs`)
+- `/dashboard/history` — real job history table · `/billing` — Stripe upgrade · `/settings` — profile
 
 ## ⌨ Tips
 

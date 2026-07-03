@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Icon from '@/components/Icon';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { initials } from '@/lib/auth';
+import { initials, isAdminUser } from '@/lib/auth';
 
 const nav = [
   { href: '/dashboard', label: 'Overview', icon: 'grid' },
@@ -40,6 +40,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </nav>
+        {isAdminUser(user) && (
+          <Link href="/admin" className="sidebar-item" style={{ marginTop: 8, color: 'var(--gold-premium)' }}>
+            <Icon name="crown" size={16} /> Admin Panel
+          </Link>
+        )}
         <Link href="/tools" className="btn btn-ghost btn-sm w-full mt-4">Browse Tools</Link>
       </aside>
       <div className="dash-main">{children}</div>

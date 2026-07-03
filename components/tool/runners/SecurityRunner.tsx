@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Tool } from '@/data/tools';
 import { FileDrop, OutputBlock, ErrorBox } from '../shared';
-import { md5Bytes, md5Text } from '@/lib/md5';
+import { md5Bytes } from '@/lib/md5';
 import Icon from '../../Icon';
 
 async function shaHex(algo: 'SHA-1' | 'SHA-256' | 'SHA-512', data: Uint8Array): Promise<string> {

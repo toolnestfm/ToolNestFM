@@ -1,5 +1,6 @@
 import { apiErr, apiOk } from '@/lib/api-response';
-import { searchTools, tools } from '@/data/tools';
+import { searchTools } from '@/data/tools';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -11,6 +12,15 @@ export async function GET(req: Request) {
 
   let results = searchTools(q);
   if (category) results = results.filter((t) => t.category === category);
+
+  // Best-effort search analytics — never blocks or fails the response.
+  const supabase = createAdminClient();
+  if (supabase) {
+    const { error } = await supabase
+      .from('search_logs')
+      .insert({ query: q.slice(0, 200), results_count: results.length });
+    if (error) console.error('[search] log failed:', error.message);
+  }
 
   return apiOk({
     query: q,

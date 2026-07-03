@@ -39,10 +39,18 @@ export default function SettingsPage() {
   };
 
   const deleteAccount = async () => {
-    if (!confirm('Delete your account permanently? This cannot be undone.')) return;
-    await signOut();
-    toast('Contact support@toolnestfm.com to complete account deletion.', 'info');
-    router.push('/');
+    if (!confirm('Delete your account permanently? All your data (profile, history) will be erased. This cannot be undone.')) return;
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' });
+      const json = (await res.json()) as { success: boolean; error?: string | null };
+      if (!json.success) throw new Error(json.error || 'Could not delete account');
+      await signOut();
+      toast('Your account has been permanently deleted.', 'success');
+      router.push('/');
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Could not delete account', 'error');
+    }
   };
 
   return (

@@ -1,4 +1,5 @@
 export type UserPlan = 'free' | 'pro' | 'enterprise';
+export type UserRole = 'user' | 'admin' | 'super_admin';
 
 export interface User {
   id: string;
@@ -6,6 +7,7 @@ export interface User {
   fullName: string;
   avatarUrl?: string;
   plan: UserPlan;
+  role: UserRole;
   storageUsedMb: number;
   storageLimitMb: number;
 }
@@ -32,6 +34,17 @@ export function storageLimitForPlan(plan: UserPlan): number {
   return 500;
 }
 
+export function roleFromDb(role: string): UserRole {
+  const r = role.toUpperCase();
+  if (r === 'SUPER_ADMIN') return 'super_admin';
+  if (r === 'ADMIN') return 'admin';
+  return 'user';
+}
+
+export function isAdminUser(user: User | null | undefined): boolean {
+  return user?.role === 'admin' || user?.role === 'super_admin';
+}
+
 export function profileToUser(
   profile: ProfileRow,
   email: string,
@@ -44,6 +57,7 @@ export function profileToUser(
     fullName: profile.full_name || email.split('@')[0],
     avatarUrl: profile.avatar_url || undefined,
     plan,
+    role: roleFromDb(profile.role),
     storageUsedMb,
     storageLimitMb: storageLimitForPlan(plan),
   };

@@ -1,7 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useEffect } from 'react';
 import type { Tool } from '@/data/tools';
+import { recordJob } from '@/lib/jobs';
 import { Processing } from './shared';
 
 const loading = () => <Processing label="Loading tool..." />;
@@ -29,6 +31,10 @@ const FileConvertRunner = dynamic(() => import('./runners/FileConvertRunner'), {
 const SocialRunner = dynamic(() => import('./runners/SocialRunner'), { ssr: false, loading });
 
 export default function ToolRunner({ tool }: { tool: Tool }) {
+  useEffect(() => {
+    recordJob(tool.slug, 'used');
+  }, [tool.slug]);
+
   switch (tool.runner) {
     case 'image': return <ImageRunner tool={tool} />;
     case 'bg-remove': return <BgRemoveRunner tool={tool} />;
