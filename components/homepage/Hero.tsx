@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '../Icon';
 import { useUI } from '../GlobalUI';
 import { searchTools } from '@/data/tools';
+import { formatCount } from '@/lib/format-count';
 
 const chipMap: Record<string, string> = {
   'PDF to Word': '/tools/pdf/pdf-to-word',
@@ -29,6 +30,21 @@ export default function Hero() {
   const { openAI, toast } = useUI();
   const router = useRouter();
   const [q, setQ] = useState('');
+  const [stats, setStats] = useState<{ users: number; jobs: number } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/stats/public');
+        const json = (await res.json()) as { success: boolean; data?: { users: number | null; jobs: number | null } };
+        if (!cancelled && json.success && typeof json.data?.users === 'number') {
+          setStats({ users: json.data.users, jobs: json.data.jobs ?? 0 });
+        }
+      } catch { /* keep fallback text */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const search = () => {
     const r = searchTools(q);
@@ -79,7 +95,11 @@ export default function Hero() {
             </div>
             <div>
               <div className="stars">★★★★★</div>
-              <div className="proof-text">Trusted by 25M+ users worldwide</div>
+              <div className="proof-text">
+                {stats
+                  ? `Trusted by ${formatCount(stats.users)} users · ${formatCount(stats.jobs)} tool runs`
+                  : 'Loved by our growing community'}
+              </div>
             </div>
           </div>
         </div>

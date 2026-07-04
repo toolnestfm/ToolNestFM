@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import Icon from '@/components/Icon';
 import ToolCard from '@/components/ToolCard';
 import ToolRunner from '@/components/tool/ToolRunner';
+import ToolUsageStat from '@/components/tool/ToolUsageStat';
 import FeatureStrip from '@/components/homepage/FeatureStrip';
 import ToolPageAds, { ToolPageSidebarAds } from '@/components/ads/ToolPageAds';
 import { getCategory } from '@/data/categories';
@@ -94,17 +95,11 @@ function buildFaq(toolName: string, slug: string): { q: string; a: string }[] {
   ];
 }
 
-function getTrustStats(slug: string) {
-  if (slug === 'pdf-converter') {
-    return { rating: '4.9', reviews: '32,410', uses: '8.2M+', extra: 'Files auto-deleted after 24h' };
-  }
-  if (slug === 'image-compressor') {
-    return { rating: '4.9', reviews: '28,750', uses: '4.2M+', extra: '100% Private · No Upload' };
-  }
-  if (slug === 'pan-card-photo-resizer') {
-    return { rating: '4.9', reviews: '18,240', uses: '500K+', extra: 'AI Face Crop · 12-Point Compliance' };
-  }
-  return { rating: '4.9', reviews: '', uses: '2.4M+', extra: 'Runs in your browser' };
+function getTrustExtra(slug: string): string {
+  if (slug === 'pdf-converter') return 'Files auto-deleted after 24h';
+  if (slug === 'image-compressor') return '100% Private · No Upload';
+  if (slug === 'pan-card-photo-resizer') return 'AI Face Crop · 12-Point Compliance';
+  return 'Runs in your browser';
 }
 
 export default async function ToolPage({ params }: Props) {
@@ -114,7 +109,7 @@ export default async function ToolPage({ params }: Props) {
   const cat = getCategory(tool.category);
   const related = getToolsByCategory(tool.category).filter((t) => t.slug !== tool.slug).slice(0, 5);
   const faq = buildFaq(tool.name, slug);
-  const trust = getTrustStats(slug);
+  const trustExtra = getTrustExtra(slug);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -160,13 +155,11 @@ export default async function ToolPage({ params }: Props) {
         </div>
       </div>
       <div className="trust-row">
-        <span>Used {trust.uses} times</span>
-        <span>&middot;</span>
-        <span>&#11088; {trust.rating}{trust.reviews && ` (${trust.reviews} reviews)`}</span>
+        <ToolUsageStat slug={tool.slug} />
         <span>&middot;</span>
         <span>&#128274; 100% Secure &amp; Private</span>
         <span>&middot;</span>
-        <span>&#9889; {trust.extra}</span>
+        <span>&#9889; {trustExtra}</span>
       </div>
 
       <div className="tool-page-layout">

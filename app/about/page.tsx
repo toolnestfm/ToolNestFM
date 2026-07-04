@@ -16,8 +16,8 @@ export default function AboutPage() {
       <h2>By the numbers</h2>
       <ul>
         <li>130+ tools across 15 categories</li>
-        <li>25M+ users worldwide</li>
-        <li>99.9% uptime</li>
+        <li>A growing worldwide user community</li>
+        <li>100% free to use</li>
         <li>100% browser-based processing where possible</li>
       </ul>
       <h2>Get started</h2>
