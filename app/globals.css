@@ -204,6 +204,8 @@ code, pre, .mono { font-family: var(--font-mono); }
 .fab-menu button:hover { background: var(--bg-surface-2); }
 .fab-menu button:disabled { opacity: 0.45; cursor: not-allowed; }
 .cloud-picker-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; margin-top: 8px; }
+.cloud-import-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; font-size: 13px; }
+.cloud-import-row .btn { display: inline-flex; align-items: center; gap: 7px; }
 .cloud-picker-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 10px; border-radius: var(--radius-sm); font-size: 13px; text-align: left;

@@ -140,6 +140,42 @@ function CloudPickerModal({
   );
 }
 
+/* ─── Cloud import buttons (rendered under tool dropzones) ─── */
+
+export function CloudImportButtons({ onPick }: { onPick: (file: File) => void }) {
+  const { user } = useAuth();
+  const pro = isPro(user?.plan);
+  const [picker, setPicker] = useState<CloudProvider | null>(null);
+  const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
+
+  const openPicker = (p: CloudProvider) => {
+    if (!pro) { setUpgradeFeature(p === 'google' ? 'Google Drive' : 'Dropbox'); return; }
+    setPicker(p);
+  };
+
+  return (
+    <>
+      <div className="cloud-import-row">
+        <span className="muted">or import from</span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => openPicker('google')}>
+          <GoogleDriveIcon size={16} /> Google Drive
+          {!pro && <Icon name="lock" size={11} />}
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => openPicker('dropbox')}>
+          <DropboxIcon size={16} /> Dropbox
+          {!pro && <Icon name="lock" size={11} />}
+        </button>
+      </div>
+      {picker && (
+        <CloudPickerModal provider={picker} onClose={() => setPicker(null)} onPick={onPick} />
+      )}
+      {upgradeFeature && (
+        <ProUpgradePrompt onClose={() => setUpgradeFeature(null)} feature={upgradeFeature} />
+      )}
+    </>
+  );
+}
+
 /* ─── FAB rail ─── */
 
 export interface FabRailProps {
@@ -255,6 +291,21 @@ export default function FabRail({ file, toolSlug, onFilesPasted, onCloudImport }
 
         {open && (
           <div className="fab-items">
+            {file && (
+              <button
+                className="fab-btn"
+                onClick={() => {
+                  const url = URL.createObjectURL(file.blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = file.name; a.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                }}
+                aria-label="Download"
+                title="Download"
+              >
+                <Icon name="download" size={20} />
+              </button>
+            )}
             <div className="fab-item-wrap">
               <button
                 className={`fab-btn ${!pro ? 'fab-btn-locked' : ''}`}

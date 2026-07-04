@@ -10,8 +10,10 @@ import { replaceExt, formatBytes } from '@/lib/download';
 import { analyzeDocument, calculateConversionConfidence, buildPageStrategies, type DocumentStructure, type PageStrategy } from '@/lib/pdf-intelligence';
 import Icon from '@/components/Icon';
 import dynamic from 'next/dynamic';
+import { looksBrokenBengali, restoreBengaliText } from '@/lib/text-restore';
 
 const FabRail = dynamic(() => import('../FabRail'), { ssr: false });
+const CloudImportButtons = dynamic(() => import('../FabRail').then((m) => m.CloudImportButtons), { ssr: false });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -180,6 +182,7 @@ export default function PdfConverterAdvanced() {
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>AI-powered document intelligence &middot; Visual diff &middot; Confidence scoring</p>
         </div>
+        <CloudImportButtons onPick={(f) => void handleFile(f)} />
         <input ref={inputRef} type="file" hidden accept="application/pdf" onChange={(e) => { if (e.target.files?.[0]) void handleFile(e.target.files[0]); e.target.value = ''; }} />
         {phase === 'error' && <ErrorBox message={error} onRetry={reset} />}
       </div>
@@ -534,9 +537,28 @@ export default function PdfConverterAdvanced() {
 
 // ─── Conversion Engine ───────────────────────────────────────────────────────
 
+/** AI-repair shattered Bengali/Indic text page-by-page. Fail-soft: any AI
+ *  failure keeps that page's original text — conversion never aborts. */
+async function repairBengaliPages(pages: string[], onProgress: (p: number) => void): Promise<string[]> {
+  if (!pages.some((p) => looksBrokenBengali(p))) return pages;
+  const fixed: string[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    onProgress(0.7 + ((i + 1) / pages.length) * 0.25);
+    if (!looksBrokenBengali(pages[i])) { fixed.push(pages[i]); continue; }
+    try {
+      const repaired = await restoreBengaliText(pages[i]);
+      fixed.push(repaired.trim() ? repaired : pages[i]);
+    } catch {
+      fixed.push(pages[i]);
+    }
+  }
+  return fixed;
+}
+
 async function runConversion(file: File, target: TargetFormat, onProgress: (p: number) => void): Promise<ResultFile> {
   if (target === 'docx') {
-    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
+    const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.6));
+    const pages = await repairBengaliPages(rawPages, onProgress);
     const { Document, Packer, Paragraph, TextRun, PageBreak } = await import('docx');
     const children = pages.flatMap((pt, pi) => {
       const paras = pt.split('\n').filter(Boolean).map((l) => new Paragraph({ children: [new TextRun({ text: l, size: 22 })], spacing: { after: 120 } }));
@@ -586,21 +608,25 @@ async function runConversion(file: File, target: TargetFormat, onProgress: (p: n
     return { name: replaceExt(file.name, 'zip'), blob: await zip.generateAsync({ type: 'blob' }) };
   }
   if (target === 'txt') {
-    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
+    const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
+    const pages = await repairBengaliPages(rawPages, onProgress);
     return { name: replaceExt(file.name, 'txt'), blob: new Blob([pages.map((p, i) => `--- Page ${i + 1} ---\n${p}`).join('\n\n')], { type: 'text/plain' }) };
   }
   if (target === 'md') {
-    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
+    const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
+    const pages = await repairBengaliPages(rawPages, onProgress);
     const md = pages.map((p, i) => `## Page ${i + 1}\n\n${p.split('\n').map((l) => { const t = l.trim(); if (!t) return ''; if (t.length < 60 && t === t.toUpperCase() && t.length > 3) return `### ${t}`; return t; }).join('\n')}`).join('\n\n---\n\n');
     return { name: replaceExt(file.name, 'md'), blob: new Blob([md], { type: 'text/markdown' }) };
   }
   if (target === 'html') {
-    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
+    const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
+    const pages = await repairBengaliPages(rawPages, onProgress);
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${file.name}</title><style>body{font-family:system-ui;max-width:900px;margin:40px auto;padding:20px;line-height:1.7;color:#333}.page{margin-bottom:2em;padding-bottom:1em;border-bottom:1px solid #eee}</style></head><body>${pages.map((p, i) => `<div class="page"><h2>Page ${i + 1}</h2>${p.split('\n').map((l) => `<p>${l || '&nbsp;'}</p>`).join('')}</div>`).join('')}</body></html>`;
     return { name: replaceExt(file.name, 'html'), blob: new Blob([html], { type: 'text/html' }) };
   }
   if (target === 'rtf') {
-    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
+    const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
+    const pages = await repairBengaliPages(rawPages, onProgress);
     const rtf = `{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Helvetica;}}\n${pages.map((p) => p.split('\n').map((l) => `\\f0\\fs22 ${l.replace(/[\\{}]/g, '\\$&')}\\par\n`).join('')).join('\\page\n')}}`;
     return { name: replaceExt(file.name, 'rtf'), blob: new Blob([rtf], { type: 'application/rtf' }) };
   }
