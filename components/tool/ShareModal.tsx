@@ -5,9 +5,7 @@ import { createPortal } from 'react-dom';
 import Icon from '../Icon';
 import { useUI } from '../GlobalUI';
 import { useAuth } from '../providers/AuthProvider';
-import { isProPlan } from '@/lib/auth';
 import { trackEvent } from '@/lib/analytics-client';
-import ProUpgradePrompt from './ProUpgradePrompt';
 
 export interface ShareFile {
   name: string;
@@ -37,8 +35,6 @@ interface ShareModalProps {
 export default function ShareModal({ open, onClose, file, toolSlug }: ShareModalProps) {
   const { toast } = useUI();
   const { user } = useAuth();
-  const pro = isProPlan(user?.plan ?? 'free');
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [share, setShare] = useState<ShareInfo | null>(null);
   const [qrPng, setQrPng] = useState('');
   const [qrSvg, setQrSvg] = useState('');
@@ -84,8 +80,8 @@ export default function ShareModal({ open, onClose, file, toolSlug }: ShareModal
   }, [open, onClose]);
 
   const createShare = async (): Promise<ShareInfo | null> => {
-    if (!pro) {
-      setShowUpgrade(true);
+    if (!user) {
+      toast('Sign in to create share links — it is free', 'error');
       return null;
     }
     if (share) return share;
@@ -196,20 +192,13 @@ export default function ShareModal({ open, onClose, file, toolSlug }: ShareModal
             <Icon name="x" size={18} />
           </button>
           <h3>Copy &amp; Share Download Link</h3>
-          <p className="muted share-modal-sub">Share your processed file instantly.</p>
-
-          {!pro && (
-            <p className="share-pro-hint">
-              <Icon name="crown" size={14} /> Secure share links are a Pro feature.{' '}
-              <button type="button" className="link-btn" onClick={() => setShowUpgrade(true)}>Upgrade</button>
-            </p>
-          )}
+          <p className="muted share-modal-sub">Share your processed file instantly — free for all signed-in users.</p>
 
           {!share ? (
             <>
               <div className="field">
                 <label htmlFor="share-expiry">Expire after</label>
-                <select id="share-expiry" value={expiresIn} onChange={(e) => setExpiresIn(+e.target.value)} disabled={!pro}>
+                <select id="share-expiry" value={expiresIn} onChange={(e) => setExpiresIn(+e.target.value)}>
                   {EXPIRY_OPTIONS.map((o) => (
                     <option key={o.hours} value={o.hours}>{o.label}</option>
                   ))}
@@ -224,11 +213,10 @@ export default function ShareModal({ open, onClose, file, toolSlug }: ShareModal
                   max={100}
                   value={downloadLimit}
                   onChange={(e) => setDownloadLimit(+e.target.value)}
-                  disabled={!pro}
                 />
               </div>
               <label className="checkbox-row">
-                <input type="checkbox" checked={oneTime} onChange={(e) => setOneTime(e.target.checked)} disabled={!pro} />
+                <input type="checkbox" checked={oneTime} onChange={(e) => setOneTime(e.target.checked)} />
                 One-time download
               </label>
               <div className="field">
@@ -238,8 +226,7 @@ export default function ShareModal({ open, onClose, file, toolSlug }: ShareModal
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Pro only"
-                  disabled={!pro}
+                  placeholder="Optional"
                   autoComplete="new-password"
                 />
               </div>
@@ -292,7 +279,6 @@ export default function ShareModal({ open, onClose, file, toolSlug }: ShareModal
           )}
         </div>
       </div>
-      {showUpgrade && <ProUpgradePrompt onClose={() => setShowUpgrade(false)} feature="Secure Share Links" />}
     </>,
     document.body,
   );

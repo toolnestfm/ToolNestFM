@@ -7,13 +7,8 @@ import { useUI } from '../GlobalUI';
 import { useAuth } from '../providers/AuthProvider';
 import { trackEvent } from '@/lib/analytics-client';
 import type { ShareFile } from './ShareModal';
-import ProUpgradePrompt from './ProUpgradePrompt';
 
 const ShareModal = dynamic(() => import('./ShareModal'), { ssr: false });
-
-function isPro(plan?: string): boolean {
-  return plan === 'pro' || plan === 'enterprise';
-}
 
 /* ─── FAB rail ─── */
 
@@ -26,10 +21,8 @@ export interface FabRailProps {
 export default function FabRail({ file, toolSlug, onFilesPasted }: FabRailProps) {
   const { toast } = useUI();
   const { user } = useAuth();
-  const pro = isPro(user?.plan);
   const [open, setOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [upgradeFeature, setUpgradeFeature] = useState<string | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -102,17 +95,15 @@ export default function FabRail({ file, toolSlug, onFilesPasted }: FabRailProps)
             )}
 
             <button
-              className={`fab-btn ${!pro ? 'fab-btn-locked' : ''}`}
+              className="fab-btn"
               onClick={() => {
-                if (!pro) { setUpgradeFeature('Share Links'); return; }
                 if (file) setShareOpen(true);
                 else toast('Process a file first', 'error');
               }}
               aria-label="Share link"
-              title={pro ? 'Share Link' : 'Share Link (Pro)'}
+              title="Share Link"
             >
               <Icon name="link" size={20} />
-              {!pro && <span className="fab-lock" aria-hidden><Icon name="lock" size={10} /></span>}
             </button>
 
             {onFilesPasted && (
@@ -126,10 +117,6 @@ export default function FabRail({ file, toolSlug, onFilesPasted }: FabRailProps)
 
       {file && shareOpen && (
         <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} file={file} toolSlug={toolSlug} />
-      )}
-
-      {upgradeFeature && (
-        <ProUpgradePrompt onClose={() => setUpgradeFeature(null)} feature={upgradeFeature} />
       )}
     </>
   );

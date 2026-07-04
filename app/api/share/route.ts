@@ -6,7 +6,6 @@ import {
   deviceHint,
   getCallerPlan,
   hashSharePassword,
-  isProPlan,
   sharePublicUrl,
 } from '@/lib/share';
 
@@ -15,11 +14,10 @@ export const dynamic = 'force-dynamic';
 const MAX_SHARE_BYTES = 25 * 1024 * 1024;
 const EXPIRY_HOURS = new Set([1, 24, 168, 720]);
 
-/** GET /api/share — list current user's active share links (Pro). */
+/** GET /api/share — list current user's active share links. */
 export async function GET(req: Request) {
-  const { userId, plan } = await getCallerPlan();
+  const { userId } = await getCallerPlan();
   if (!userId) return apiErr('Sign in to view your share links', 401);
-  if (!isProPlan(plan)) return apiErr('Share links require a Pro plan', 403);
 
   const admin = createAdminClient();
   if (!admin) return apiErr('Sharing is not configured', 503);
@@ -43,14 +41,14 @@ export async function GET(req: Request) {
   return apiOk({ shares });
 }
 
-/** POST /api/share — upload a processed file and get a secure share link (Pro). */
+/** POST /api/share — upload a processed file and get a secure share link (free, sign-in required). */
 export async function POST(req: Request) {
   const rl = rateLimit(`share:${clientIp(req)}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterSeconds);
 
-  const { userId, plan } = await getCallerPlan();
-  if (!userId || !isProPlan(plan)) {
-    return apiErr('Secure share links require a Pro plan. Upgrade to unlock.', 403);
+  const { userId } = await getCallerPlan();
+  if (!userId) {
+    return apiErr('Sign in to create share links — it is free.', 401);
   }
 
   const admin = createAdminClient();

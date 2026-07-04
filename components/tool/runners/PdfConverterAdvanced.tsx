@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { looksBrokenBengali, restoreBengaliText } from '@/lib/text-restore';
 
 const FabRail = dynamic(() => import('../FabRail'), { ssr: false });
+const ShareModal = dynamic(() => import('../ShareModal'), { ssr: false });
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,7 @@ export default function PdfConverterAdvanced() {
   const [pdfPages, setPdfPages] = useState<HTMLCanvasElement[]>([]);
   const [diffPage, setDiffPage] = useState(0);
   const [structureOpen, setStructureOpen] = useState(true);
+  const [shareOpen, setShareOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ─── File Upload + Auto Analysis ────────────────────────────────────────
@@ -371,7 +373,13 @@ export default function PdfConverterAdvanced() {
           <button className="btn btn-ghost" onClick={resetAll}>
             <Icon name="upload" size={15} /> New File
           </button>
+          <button className="btn btn-primary" onClick={() => setShareOpen(true)}>
+            <Icon name="link" size={15} /> Share Link
+          </button>
         </div>
+        {shareOpen && (
+          <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} file={r.file} toolSlug="pdf-converter" />
+        )}
         <FabRail file={r.file} toolSlug="pdf-converter" />
       </div>
     );
