@@ -49,3 +49,34 @@ export async function uploadToDropbox(
   const json = (await res.json()) as { path_display?: string };
   return { path: json.path_display ?? path };
 }
+
+export interface DropboxFileMeta {
+  id: string;
+  name: string;
+  path_lower: string;
+  size: number;
+  server_modified?: string;
+}
+
+export async function listDropboxFiles(accessToken: string): Promise<DropboxFileMeta[]> {
+  const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: '', limit: 25 }),
+  });
+  if (!res.ok) throw new Error('Could not list Dropbox files');
+  const json = (await res.json()) as { entries?: Array<DropboxFileMeta & { '.tag': string }> };
+  return (json.entries ?? []).filter((e) => e['.tag'] === 'file');
+}
+
+export async function downloadDropboxFile(accessToken: string, path: string): Promise<Response> {
+  const res = await fetch('https://content.dropboxapi.com/2/files/download', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Dropbox-API-Arg': JSON.stringify({ path }),
+    },
+  });
+  if (!res.ok) throw new Error('Could not download the file from Dropbox');
+  return res;
+}

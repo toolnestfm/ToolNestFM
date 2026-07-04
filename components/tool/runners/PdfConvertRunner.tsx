@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Tool } from '@/data/tools';
 import { FileDrop, Processing, ErrorBox, ResultView, useToolPhase, type ResultFile } from '../shared';
 import { extractPdfText } from '@/lib/pdf';
+import { extractPdfTextSmart } from '@/lib/pdf-smart-text';
 import { replaceExt } from '@/lib/download';
 import { looksBrokenBengali, restoreBengaliText } from '@/lib/text-restore';
 
@@ -47,10 +48,14 @@ export default function PdfConvertRunner({ tool }: { tool: Tool }) {
 
       if (mode === 'pdf2word') {
         setStatus('Extracting text from PDF...');
-        const rawPages = await extractPdfText(file, (d, t) => setProgress((d / t) * 0.7));
+        const { pages: rawPages, usedOcr } = await extractPdfTextSmart(file, (d, t, stage) => {
+          if (stage === 'ocr') setStatus(`Running OCR on page ${d}/${t} (scanned PDF)...`);
+          setProgress((d / t) * 0.7);
+        });
         if (!rawPages.some((p) => p.trim())) {
-          throw new Error('No text layer found in this PDF — it looks like a scanned document. Run PDF OCR first, then convert.');
+          throw new Error('No readable text found in this PDF, even with OCR. The scan quality may be too low.');
         }
+        if (usedOcr) setStatus('OCR complete — building document...');
         const pages = await repairPages(rawPages);
         setStatus('Building Word document...');
         const { Document, Packer, Paragraph, TextRun, PageBreak } = await import('docx');

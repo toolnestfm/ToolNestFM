@@ -111,3 +111,40 @@ export async function uploadToGoogleDrive(
   if (!res.ok) throw new Error('Google Drive upload failed');
   return (await res.json()) as { id: string; webViewLink?: string };
 }
+
+export interface DriveFileMeta {
+  id: string;
+  name: string;
+  mimeType: string;
+  size?: string;
+  modifiedTime?: string;
+}
+
+export async function listGoogleDriveFiles(accessToken: string, query = ''): Promise<DriveFileMeta[]> {
+  const params = new URLSearchParams({
+    pageSize: '25',
+    orderBy: 'modifiedTime desc',
+    fields: 'files(id,name,mimeType,size,modifiedTime)',
+    q: query
+      ? `name contains '${query.replace(/['"\\]/g, '')}' and trashed=false`
+      : 'trashed=false and mimeType != "application/vnd.google-apps.folder"',
+  });
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error('Could not list Google Drive files');
+  const json = (await res.json()) as { files?: DriveFileMeta[] };
+  return json.files ?? [];
+}
+
+export async function downloadGoogleDriveFile(
+  accessToken: string,
+  fileId: string,
+): Promise<Response> {
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) throw new Error('Could not download the file from Google Drive');
+  return res;
+}

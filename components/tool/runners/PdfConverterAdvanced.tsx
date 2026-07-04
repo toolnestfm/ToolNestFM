@@ -3,7 +3,8 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 import { ErrorBox, useToolPhase, type ResultFile } from '../shared';
-import { extractPdfText, renderPdfPages } from '@/lib/pdf';
+import { renderPdfPages } from '@/lib/pdf';
+import { extractPdfTextSmart } from '@/lib/pdf-smart-text';
 import { canvasToBlob } from '@/lib/image';
 import { replaceExt, formatBytes } from '@/lib/download';
 import { analyzeDocument, calculateConversionConfidence, buildPageStrategies, type DocumentStructure, type PageStrategy } from '@/lib/pdf-intelligence';
@@ -158,6 +159,10 @@ export default function PdfConverterAdvanced() {
   if (view === 'upload') {
     return (
       <div className="pdfconv-layout">
+        <FabRail
+          toolSlug="pdf-converter"
+          onFilesPasted={(fs) => { const f = fs[0]; if (f) void handleFile(f); }}
+        />
         <div
           className={`pdfconv-dropzone ${dragOver ? 'drag-active' : ''}`}
           onClick={() => inputRef.current?.click()}
@@ -531,7 +536,7 @@ export default function PdfConverterAdvanced() {
 
 async function runConversion(file: File, target: TargetFormat, onProgress: (p: number) => void): Promise<ResultFile> {
   if (target === 'docx') {
-    const pages = await extractPdfText(file, (d, t) => onProgress((d / t) * 0.7));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
     const { Document, Packer, Paragraph, TextRun, PageBreak } = await import('docx');
     const children = pages.flatMap((pt, pi) => {
       const paras = pt.split('\n').filter(Boolean).map((l) => new Paragraph({ children: [new TextRun({ text: l, size: 22 })], spacing: { after: 120 } }));
@@ -542,7 +547,7 @@ async function runConversion(file: File, target: TargetFormat, onProgress: (p: n
     return { name: replaceExt(file.name, 'docx'), blob: await Packer.toBlob(new Document({ sections: [{ children }] })) };
   }
   if (target === 'xlsx' || target === 'csv') {
-    const pages = await extractPdfText(file, (d, t) => onProgress((d / t) * 0.7));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.7));
     if (target === 'csv') {
       const csv = pages.flatMap((p) => p.split('\n').filter(Boolean).map((l) => l.split(/\s{2,}|\t/).map((c) => c.includes(',') ? `"${c.trim()}"` : c.trim()).join(','))).join('\n');
       onProgress(1);
@@ -581,21 +586,21 @@ async function runConversion(file: File, target: TargetFormat, onProgress: (p: n
     return { name: replaceExt(file.name, 'zip'), blob: await zip.generateAsync({ type: 'blob' }) };
   }
   if (target === 'txt') {
-    const pages = await extractPdfText(file, (d, t) => onProgress(d / t));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
     return { name: replaceExt(file.name, 'txt'), blob: new Blob([pages.map((p, i) => `--- Page ${i + 1} ---\n${p}`).join('\n\n')], { type: 'text/plain' }) };
   }
   if (target === 'md') {
-    const pages = await extractPdfText(file, (d, t) => onProgress(d / t));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
     const md = pages.map((p, i) => `## Page ${i + 1}\n\n${p.split('\n').map((l) => { const t = l.trim(); if (!t) return ''; if (t.length < 60 && t === t.toUpperCase() && t.length > 3) return `### ${t}`; return t; }).join('\n')}`).join('\n\n---\n\n');
     return { name: replaceExt(file.name, 'md'), blob: new Blob([md], { type: 'text/markdown' }) };
   }
   if (target === 'html') {
-    const pages = await extractPdfText(file, (d, t) => onProgress(d / t));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${file.name}</title><style>body{font-family:system-ui;max-width:900px;margin:40px auto;padding:20px;line-height:1.7;color:#333}.page{margin-bottom:2em;padding-bottom:1em;border-bottom:1px solid #eee}</style></head><body>${pages.map((p, i) => `<div class="page"><h2>Page ${i + 1}</h2>${p.split('\n').map((l) => `<p>${l || '&nbsp;'}</p>`).join('')}</div>`).join('')}</body></html>`;
     return { name: replaceExt(file.name, 'html'), blob: new Blob([html], { type: 'text/html' }) };
   }
   if (target === 'rtf') {
-    const pages = await extractPdfText(file, (d, t) => onProgress(d / t));
+    const { pages } = await extractPdfTextSmart(file, (d, t) => onProgress(d / t));
     const rtf = `{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Helvetica;}}\n${pages.map((p) => p.split('\n').map((l) => `\\f0\\fs22 ${l.replace(/[\\{}]/g, '\\$&')}\\par\n`).join('')).join('\\page\n')}}`;
     return { name: replaceExt(file.name, 'rtf'), blob: new Blob([rtf], { type: 'application/rtf' }) };
   }

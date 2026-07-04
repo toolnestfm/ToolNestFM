@@ -180,10 +180,39 @@ code, pre, .mono { font-family: var(--font-mono); }
 /* Floating action rail + Share modal */
 .fab-rail {
   position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; gap: 12px; z-index: 90;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 12px; z-index: 90;
   animation: fabIn 0.25s ease-out;
 }
 @keyframes fabIn { from { opacity: 0; transform: translateY(-50%) translateX(16px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }
+.fab-items { display: flex; flex-direction: column; gap: 12px; animation: fabItemsIn 0.2s ease-out; }
+@keyframes fabItemsIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+.fab-main { background: var(--brand-primary) !important; color: #fff !important; border-color: transparent !important; }
+.fab-main:hover { background: var(--brand-primary-hover) !important; }
+.fab-item-wrap { position: relative; }
+.fab-menu {
+  position: absolute; right: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  min-width: 190px; padding: 6px; z-index: 95;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.fab-menu button {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 9px 10px; font-size: 13px; font-weight: 500;
+  border-radius: var(--radius-sm); text-align: left; white-space: nowrap;
+}
+.fab-menu button:hover { background: var(--bg-surface-2); }
+.fab-menu button:disabled { opacity: 0.45; cursor: not-allowed; }
+.cloud-picker-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; margin-top: 8px; }
+.cloud-picker-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px; border-radius: var(--radius-sm); font-size: 13px; text-align: left;
+}
+.cloud-picker-item:hover { background: var(--bg-surface-2); }
+.cloud-picker-item:disabled { opacity: 0.6; }
+.cloud-picker-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cloud-picker-size { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.spinner-sm { width: 14px; height: 14px; border-width: 2px; }
 .fab-btn {
   width: 56px; height: 56px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
