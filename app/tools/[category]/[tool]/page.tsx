@@ -6,7 +6,7 @@ import ToolCard from '@/components/ToolCard';
 import ToolRunner from '@/components/tool/ToolRunner';
 import ToolUsageStat from '@/components/tool/ToolUsageStat';
 import FeatureStrip from '@/components/homepage/FeatureStrip';
-import { ToolWorkspaceAd, ToolPreFaqAd, ToolPreFooterAd, ToolSmartlink } from '@/components/ads/ToolPageAds';
+import { ToolTopAd, ToolMidAd, ToolPreFooterAd, ToolSmartlink } from '@/components/ads/ToolPageAds';
 import { getCategory } from '@/data/categories';
 import { getTool, getToolsByCategory, tools } from '@/data/tools';
 
@@ -162,13 +162,16 @@ export default async function ToolPage({ params }: Props) {
         <span>&#9889; {trustExtra}</span>
       </div>
 
+      {/* Ad 1 — top, above workspace (native desktop / 320×50 mobile) */}
+      <ToolTopAd />
+
       <div className="tool-page-layout">
         <div className="tool-page-main">
           <div className="workspace glass">
             <ToolRunner tool={tool} />
           </div>
-          {/* Ad 1 — below workspace (native on desktop, 320×50 on mobile) */}
-          <ToolWorkspaceAd />
+          {/* Ad 2 — below primary action (728×90 desktop) */}
+          <ToolMidAd />
         </div>
       </div>
 
@@ -185,9 +188,6 @@ export default async function ToolPage({ params }: Props) {
           </div>
         ))}
       </section>
-
-      {/* Ad 2 — before FAQ (desktop 728×90) */}
-      <ToolPreFaqAd />
 
       <section className="faq">
         <h2>Frequently Asked Questions</h2>
