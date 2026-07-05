@@ -1,6 +1,7 @@
 'use client';
 
 import { extractPdfText, renderPdfPages } from '@/lib/pdf';
+import { normalizeIndicPage } from '@/lib/indic-normalize';
 
 /**
  * Smart PDF text extraction with OCR fallback.
@@ -54,10 +55,11 @@ export async function extractPdfTextSmart(
   file: File,
   onProgress?: (done: number, total: number, stage: 'text' | 'ocr') => void,
 ): Promise<SmartExtractResult> {
-  const pages = await extractPdfText(file, (d, t) => onProgress?.(d, t, 'text'));
+  const rawPages = await extractPdfText(file, (d, t) => onProgress?.(d, t, 'text'));
+  const pages = rawPages.map(normalizeIndicPage);
   if (!textLayerLooksWeak(pages)) return { pages, usedOcr: false };
 
-  const ocrPages = await ocrPdfPages(file, (d, t) => onProgress?.(d, t, 'ocr'));
+  const ocrPages = (await ocrPdfPages(file, (d, t) => onProgress?.(d, t, 'ocr'))).map(normalizeIndicPage);
   // Prefer whichever source produced more content per page.
   const merged = ocrPages.map((ocr, i) => {
     const layer = pages[i] ?? '';

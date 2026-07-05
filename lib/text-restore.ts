@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * AI-powered restoration of broken Bengali text extracted from PDFs/OCR.
- * PDF text layers often shatter complex Indic scripts: kar signs (ি ে া ...)
- * detach from their consonants, conjuncts split apart, and stray spaces get
- * injected between characters. A deterministic fix is impossible client-side,
- * so we route the text through the AI engine with a restoration prompt.
+ * Restoration of broken Bengali text extracted from PDFs/OCR. PDF text layers
+ * shatter complex Indic scripts: kar signs detach, conjuncts split, stray
+ * spaces get injected. Two passes: a deterministic Unicode normalizer
+ * (indic-normalize) fixes vowel order / conjuncts / the BA-nukta artifact with
+ * no AI, then the AI engine joins word boundaries and reconstructs residue.
  */
+
+import { normalizeIndicPage } from '@/lib/indic-normalize';
 
 const RESTORE_SYSTEM_PROMPT = `You are an expert in Bengali (Bangla) computational linguistics. You repair Bengali text that a PDF/OCR parser has shattered, and you output ONLY the corrected text — no notes, no explanations, no code fences.
 
@@ -131,7 +133,10 @@ export async function restoreBengaliText(
   text: string,
   onProgress?: (done: number, total: number) => void,
 ): Promise<string> {
-  const chunks = chunkText(text);
+  // Deterministic Unicode repair first — fixes vowel order / conjuncts / the
+  // BA-nukta artifact with no AI, and gives the model clean input. Also the
+  // fallback if AI is unavailable is already much better than raw.
+  const chunks = chunkText(normalizeIndicPage(text));
   const out: string[] = [];
   for (let i = 0; i < chunks.length; i++) {
     onProgress?.(i, chunks.length);
@@ -144,7 +149,7 @@ export async function restoreBengaliText(
     } catch (e) {
       const msg = e instanceof Error ? e.message : '';
       if (/limit|credit|sign in/i.test(msg)) throw e; // quota — surface to the user
-      out.push(chunks[i]); // keep original for transient failures
+      out.push(chunks[i]); // keep normalized text for transient failures
     }
   }
   onProgress?.(chunks.length, chunks.length);

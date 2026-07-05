@@ -5,6 +5,7 @@ import type { Tool } from '@/data/tools';
 import { FileDrop, Processing, ErrorBox, OutputBlock, useToolPhase } from '../shared';
 import { renderPdfPages } from '@/lib/pdf';
 import { hasBengaliText, restoreBengaliText } from '@/lib/text-restore';
+import { normalizeIndicPage } from '@/lib/indic-normalize';
 import Icon from '../../Icon';
 
 export default function OcrRunner({ tool }: { tool: Tool }) {
@@ -44,7 +45,9 @@ export default function OcrRunner({ tool }: { tool: Tool }) {
         result = data.text;
       }
       await worker.terminate();
-      let finalText = result.trim();
+      // Deterministic Unicode normalization always runs (fixes vowel order /
+      // conjuncts even when AI repair is off or unavailable).
+      let finalText = normalizeIndicPage(result.trim());
       if (finalText && aiFix && hasBengaliText(finalText)) {
         setStatus('Fixing Bengali text with AI...');
         try {
