@@ -947,54 +947,72 @@ canvas.preview-canvas { max-width: 100%; border-radius: var(--radius-md); border
   color: var(--text-muted); font-size: 13px; font-weight: 700;
 }
 
-/* ── PDF Converter: compact premium dropzone ── */
+/* ── PDF Converter: compact premium dropzone (colorful) ── */
 .pdfconv-drop {
-  position: relative; cursor: pointer; border-radius: 16px;
-  padding: 2px; /* space for the animated gradient border */
+  position: relative; cursor: pointer; border-radius: 18px;
+  padding: 2.5px; /* space for the animated gradient border */
   background:
     linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
-    conic-gradient(from var(--a, 0deg), #7c3aed, #c026d3, #3b82f6, #7c3aed) border-box;
-  border: 2px solid transparent;
-  animation: pdfconv-rotate 6s linear infinite;
+    conic-gradient(from var(--a, 0deg), #7c3aed, #ec4899, #f97316, #22c55e, #3b82f6, #c026d3, #7c3aed) border-box;
+  border: 2.5px solid transparent;
+  animation: pdfconv-rotate 5s linear infinite;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 @property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
 @keyframes pdfconv-rotate { to { --a: 360deg; } }
-.pdfconv-drop:hover { box-shadow: 0 10px 34px rgba(124, 58, 237, 0.22); }
-.pdfconv-drop.drag-active { transform: scale(1.01); box-shadow: 0 12px 42px rgba(124, 58, 237, 0.4); }
+.pdfconv-drop:hover { box-shadow: 0 12px 40px rgba(124, 58, 237, 0.3); }
+.pdfconv-drop.drag-active { transform: scale(1.015); box-shadow: 0 14px 48px rgba(236, 72, 153, 0.4); }
 .pdfconv-drop-inner {
+  position: relative; overflow: hidden;
   display: flex; align-items: center; gap: 14px;
-  padding: 16px 18px; border-radius: 14px;
+  padding: 16px 18px; border-radius: 15px;
   background:
-    radial-gradient(ellipse 60% 120% at 15% 0%, rgba(124, 58, 237, 0.08), transparent 70%),
+    radial-gradient(ellipse 50% 140% at 8% 0%, rgba(124, 58, 237, 0.14), transparent 60%),
+    radial-gradient(ellipse 50% 140% at 95% 100%, rgba(236, 72, 153, 0.12), transparent 60%),
     var(--bg-surface);
 }
+.pdfconv-drop-inner::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.06) 50%, transparent 65%);
+  transform: translateX(-120%); transition: transform 0.7s ease;
+}
+.pdfconv-drop:hover .pdfconv-drop-inner::after { transform: translateX(120%); }
 .pdfconv-drop-icon {
-  width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px;
+  width: 48px; height: 48px; flex-shrink: 0; border-radius: 13px;
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(192, 38, 211, 0.16));
-  color: var(--brand-primary-hover);
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #ec4899 55%, #f97316);
+  box-shadow: 0 8px 22px rgba(124, 58, 237, 0.45);
   animation: float-gentle 3s ease-in-out infinite;
 }
 .pdfconv-drop-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.pdfconv-drop-text b { font-size: 15px; }
+.pdfconv-drop-text b { font-size: 15.5px; }
 .pdfconv-drop-text .muted { font-size: 12px; }
-.pdfconv-drop-text .pdfconv-browse-link { color: var(--brand-primary-hover); text-decoration: underline; }
-.pdfconv-drop-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.pdfconv-drop-text .pdfconv-browse-link {
+  background: linear-gradient(90deg, #7c3aed, #ec4899);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; font-weight: 700;
+}
+.pdfconv-drop-actions { display: flex; gap: 7px; flex-shrink: 0; }
 .pdfconv-chip {
-  width: 34px; height: 34px; border-radius: 9px;
+  width: 36px; height: 36px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   background: var(--bg-surface-2); border: 1px solid var(--border-subtle);
-  color: var(--text-secondary); transition: all 0.15s;
+  color: var(--text-secondary); transition: all 0.18s;
 }
-.pdfconv-chip:hover { border-color: var(--brand-primary); color: var(--brand-primary-hover); }
+.pdfconv-chip:hover {
+  color: #fff; border-color: transparent;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  transform: translateY(-2px); box-shadow: 0 6px 16px rgba(236, 72, 153, 0.4);
+}
 @media (prefers-reduced-motion: reduce) {
   .pdfconv-drop { animation: none; }
   .pdfconv-drop-icon { animation: none; }
+  .pdfconv-drop-inner::after { display: none; }
 }
 .pdfconv-out-formats {
   display: flex; flex-wrap: wrap; gap: 5px 12px; justify-content: center;
-  margin-top: 12px; font-size: 11px; font-weight: 600; opacity: 0.75;
+  margin-top: 12px; font-size: 11px; font-weight: 700; opacity: 0.85;
 }
 
 /* ── PDF Converter: import-from-URL row ── */
