@@ -6,7 +6,7 @@ import ToolCard from '@/components/ToolCard';
 import ToolRunner from '@/components/tool/ToolRunner';
 import ToolUsageStat from '@/components/tool/ToolUsageStat';
 import FeatureStrip from '@/components/homepage/FeatureStrip';
-import ToolPageAds, { ToolPageSidebarAds } from '@/components/ads/ToolPageAds';
+import { ToolWorkspaceAd, ToolPreFaqAd, ToolPreFooterAd, ToolSmartlink } from '@/components/ads/ToolPageAds';
 import { getCategory } from '@/data/categories';
 import { getTool, getToolsByCategory, tools } from '@/data/tools';
 
@@ -167,11 +167,9 @@ export default async function ToolPage({ params }: Props) {
           <div className="workspace glass">
             <ToolRunner tool={tool} />
           </div>
-          <ToolPageAds />
+          {/* Ad 1 — below workspace (native on desktop, 320×50 on mobile) */}
+          <ToolWorkspaceAd />
         </div>
-        <aside className="tool-page-sidebar-ads">
-          <ToolPageSidebarAds />
-        </aside>
       </div>
 
       <section className="hiw">
@@ -188,6 +186,9 @@ export default async function ToolPage({ params }: Props) {
         ))}
       </section>
 
+      {/* Ad 2 — before FAQ (desktop 728×90) */}
+      <ToolPreFaqAd />
+
       <section className="faq">
         <h2>Frequently Asked Questions</h2>
         {faq.map((f) => (
@@ -200,12 +201,18 @@ export default async function ToolPage({ params }: Props) {
 
       {related.length > 0 && (
         <section className="related">
-          <h2>Related {cat?.name}</h2>
+          <div className="related-head">
+            <h2>Related {cat?.name}</h2>
+            <ToolSmartlink />
+          </div>
           <div className="tool-grid">
             {related.map((t) => <ToolCard key={t.slug} tool={t} />)}
           </div>
         </section>
       )}
+
+      {/* Ad 3 — before footer (desktop 300×250, mobile 320×50) */}
+      <ToolPreFooterAd />
 
       <FeatureStrip />
     </div>

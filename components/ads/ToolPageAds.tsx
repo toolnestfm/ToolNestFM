@@ -1,46 +1,78 @@
 'use client';
 
+import AdSlot from './AdSlot';
+import NativeBannerAd from './NativeBannerAd';
 import HighPerformanceAd from './HighPerformanceAd';
+import { SMARTLINK_URL } from '@/lib/ads/config';
 import { AD_UNITS } from '@/lib/ads/units';
 
-export default function ToolPageAds() {
+/** Ad 1 — directly below the tool workspace. Native banner on desktop,
+ *  a compact 320×50 on mobile. */
+export function ToolWorkspaceAd() {
   return (
     <>
-      {/* Desktop: bottom leaderboard (728x90) */}
-      <div className="ad-tool-bottom-desktop">
-        <HighPerformanceAd
-          adKey={AD_UNITS.leaderboard.key}
-          width={AD_UNITS.leaderboard.width}
-          height={AD_UNITS.leaderboard.height}
-        />
+      <div className="ad-desktop-only">
+        <AdSlot minHeight={260}><NativeBannerAd /></AdSlot>
       </div>
-
-      {/* Mobile: bottom banner (320x50) */}
-      <div className="ad-tool-bottom-mobile">
-        <HighPerformanceAd
-          adKey={AD_UNITS.mobileBanner.key}
-          width={AD_UNITS.mobileBanner.width}
-          height={AD_UNITS.mobileBanner.height}
-        />
+      <div className="ad-mobile-only">
+        <AdSlot minHeight={60}>
+          <HighPerformanceAd
+            adKey={AD_UNITS.mobileBanner.key}
+            width={AD_UNITS.mobileBanner.width}
+            height={AD_UNITS.mobileBanner.height}
+          />
+        </AdSlot>
       </div>
     </>
   );
 }
 
-export function ToolPageSidebarAds() {
+/** Ad 2 — before the FAQ (desktop leaderboard only). */
+export function ToolPreFaqAd() {
   return (
-    <div className="ad-tool-sidebar">
-      <HighPerformanceAd
-        adKey={AD_UNITS.sidebarRectangle.key}
-        width={AD_UNITS.sidebarRectangle.width}
-        height={AD_UNITS.sidebarRectangle.height}
-      />
-      <HighPerformanceAd
-        adKey={AD_UNITS.sidebarSkyscraper.key}
-        width={AD_UNITS.sidebarSkyscraper.width}
-        height={AD_UNITS.sidebarSkyscraper.height}
-        className="ad-skyscraper"
-      />
+    <div className="ad-desktop-only">
+      <AdSlot minHeight={100}>
+        <HighPerformanceAd
+          adKey={AD_UNITS.leaderboard.key}
+          width={AD_UNITS.leaderboard.width}
+          height={AD_UNITS.leaderboard.height}
+        />
+      </AdSlot>
     </div>
+  );
+}
+
+/** Ad 3 — before the footer. 300×250 on desktop, 320×50 on mobile (2nd mobile ad). */
+export function ToolPreFooterAd() {
+  return (
+    <>
+      <div className="ad-desktop-only">
+        <AdSlot minHeight={260}>
+          <HighPerformanceAd
+            adKey={AD_UNITS.sidebarRectangle.key}
+            width={AD_UNITS.sidebarRectangle.width}
+            height={AD_UNITS.sidebarRectangle.height}
+          />
+        </AdSlot>
+      </div>
+      <div className="ad-mobile-only">
+        <AdSlot minHeight={60}>
+          <HighPerformanceAd
+            adKey={AD_UNITS.mobileBanner.key}
+            width={AD_UNITS.mobileBanner.width}
+            height={AD_UNITS.mobileBanner.height}
+          />
+        </AdSlot>
+      </div>
+    </>
+  );
+}
+
+/** Optional Smartlink — an explicit "more free tools" link, never an auto-redirect. */
+export function ToolSmartlink() {
+  return (
+    <a className="ad-smartlink" href={SMARTLINK_URL} target="_blank" rel="nofollow sponsored noopener">
+      Explore more free tools &rarr;
+    </a>
   );
 }

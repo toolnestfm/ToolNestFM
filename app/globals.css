@@ -1318,26 +1318,40 @@ canvas.preview-canvas { max-width: 100%; border-radius: var(--radius-md); border
 
 /* ═══ ADS SYSTEM ═════════════════════════════════════════════════════════ */
 
-/* Tool page layout with sidebar ads */
-.tool-page-layout { display: grid; grid-template-columns: 1fr 300px; gap: 24px; margin-bottom: 32px; }
+/* Tool page — single column, no sidebar ads (Adsterra spec) */
+.tool-page-layout { margin-bottom: 32px; }
 .tool-page-main { min-width: 0; }
-.tool-page-sidebar-ads { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 100px; align-self: start; }
-@media (max-width: 1024px) {
-  .tool-page-layout { grid-template-columns: 1fr; }
-  .tool-page-sidebar-ads { display: none; }
-}
 
 /* Ad containers */
 .ad-container { border-radius: 8px; overflow: hidden; }
-.ad-tool-bottom-desktop { margin-top: 20px; display: flex; justify-content: center; }
-.ad-tool-bottom-mobile { margin-top: 16px; display: none; justify-content: center; }
-@media (max-width: 1024px) {
-  .ad-tool-bottom-desktop { display: none; }
-  .ad-tool-bottom-mobile { display: flex; }
+
+/* CLS-safe ad slot: reserves height, subtle "Advertisement" label */
+.ad-slot {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  margin: 20px auto 0; max-width: 100%;
+  border-radius: 10px; background: var(--bg-surface-2);
+  border: 1px solid var(--border-subtle);
+  padding: 20px 12px 12px;
+}
+.ad-slot-label {
+  position: absolute; top: 6px; left: 10px;
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-muted); opacity: 0.6;
+}
+.ad-native { border-radius: 8px; }
+
+/* Show/hide by breakpoint (max 3 desktop / 2 mobile) */
+.ad-desktop-only { display: block; }
+.ad-mobile-only { display: none; }
+@media (max-width: 768px) {
+  .ad-desktop-only { display: none; }
+  .ad-mobile-only { display: block; }
 }
 
-.ad-tool-sidebar { display: flex; flex-direction: column; gap: 20px; align-items: center; }
-.ad-skyscraper { margin-top: 8px; }
+/* Optional smartlink — a plain labelled link, never auto-redirect */
+.related-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ad-smartlink { font-size: 13px; font-weight: 600; color: var(--brand-primary-hover); white-space: nowrap; }
+.ad-smartlink:hover { text-decoration: underline; }
 
 /* Homepage ads */
 .ad-home-inline { display: flex; justify-content: center; padding: 24px 0; }
