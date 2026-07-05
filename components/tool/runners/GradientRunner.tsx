@@ -145,7 +145,10 @@ function buildCSS(g: GState): string {
         const [x, y] = spots[i % spots.length];
         return `radial-gradient(at ${x}% ${y}%, ${col} 0px, transparent 55%)`;
       });
-      return `${layers.join(', ')}, ${c[c.length - 1]}`;
+      // Last layer as a gradient (not a bare color) so the whole value is a
+      // valid background-image — lets us use the longhand property in React.
+      const base = c[c.length - 1];
+      return `${layers.join(', ')}, linear-gradient(${base}, ${base})`;
     }
     case 'aurora': {
       const layers = c.map((col, i) => {
@@ -412,9 +415,12 @@ export default function GradientRunner() {
     setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
   };
 
+  // Longhand-only style: mixing the `background` shorthand with
+  // `backgroundSize` makes React warn and mis-reconcile on re-render.
   const bgStyle: React.CSSProperties = {
-    background: css,
-    ...(g.animate ? { backgroundSize: '200% 200%', animation: `tn-gradient-shift ${g.speed}s ease infinite` } : {}),
+    backgroundImage: css,
+    backgroundSize: g.animate ? '200% 200%' : 'auto',
+    animation: g.animate ? `tn-gradient-shift ${g.speed}s ease infinite` : 'none',
   };
 
   const presetCats = ['All', ...Array.from(new Set(PRESETS.map((p) => p.cat)))];
