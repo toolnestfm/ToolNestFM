@@ -109,8 +109,7 @@ function FabDropdown({
       if (left + menuW > window.innerWidth - 12) {
         left = Math.max(12, r.left - menuW - gap);
       }
-      // Bottom dock: open upward beside the button
-      if (r.bottom > window.innerHeight * 0.45) {
+      if (top + 280 > window.innerHeight - 12) {
         top = r.top;
         transform = 'translateY(calc(-100% - 8px))';
       }
@@ -264,13 +263,8 @@ function FabRail({
   );
 }
 
-function MergeShell({ children, fab }: { children: React.ReactNode; fab: React.ReactNode }) {
-  return (
-    <div className="mergepdf-shell">
-      <div className="mergepdf-shell-body">{children}</div>
-      <div className="mergepdf-fab-dock">{fab}</div>
-    </div>
-  );
+function MergeShell({ children }: { children: React.ReactNode }) {
+  return <div className="mergepdf-shell">{children}</div>;
 }
 
 function uid(): string {
@@ -633,9 +627,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
 
   if (phase === 'working') {
     return (
-      <MergeShell fab={fab}>
+      <MergeShell>
         <div className="pdfconv-processing">
           <Steps current={step} />
+          <div className="mergepdf-fab-inline">{fab}</div>
           <ProgressRing progress={workProgress || progress || 0} label={status.includes('AI') ? 'Analyzing' : 'Merging'} />
           <h3 style={{ marginTop: 20 }}>{status || 'Processing…'}</h3>
           <p className="muted">Your PDFs are processed securely in your browser</p>
@@ -646,9 +641,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
 
   if (loadingPages) {
     return (
-      <MergeShell fab={fab}>
+      <MergeShell>
         <div className="pdfconv-processing">
           <Steps current={0} />
+          <div className="mergepdf-fab-inline">{fab}</div>
           <ProgressRing progress={loadProgress} label="Loading" />
           <h3 style={{ marginTop: 20 }}>Building page timeline</h3>
           <p className="muted">Rendering thumbnails for {files.length} file(s)…</p>
@@ -662,9 +658,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
   if (step === 3 && result) {
     const savedPct = stats.size > 0 ? Math.round((1 - result.blob.size / stats.size) * 100) : 0;
     return (
-      <MergeShell fab={fab}>
+      <MergeShell>
       <div className="pdfconv-results">
         <Steps current={3} />
+        <div className="mergepdf-fab-inline">{fab}</div>
         <div className="pdfconv-success">
           <div className="pdfconv-confetti" aria-hidden>
             {Array.from({ length: 14 }).map((_, i) => <span key={i} style={{ ['--i' as string]: i }} />)}
@@ -742,8 +739,8 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
 
   if (step === 0) {
     return (
-      <MergeShell fab={fab}>
-      <div className="pdfconv-layout">
+      <MergeShell>
+      <div className="pdfconv-layout mergepdf-upload-layout">
         <Steps current={0} />
 
         <div
@@ -783,6 +780,8 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
           </div>
         </div>
 
+        <div className="mergepdf-fab-inline">{fab}</div>
+
         {urlOpen && (
           <div className="pdfconv-url-row">
             <input
@@ -799,7 +798,7 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
           </div>
         )}
 
-        <div className="pdfconv-format-badges">
+        <div className="pdfconv-format-badges mergepdf-feature-badges">
           {['Drag & Drop', 'Batch', 'Virus Scan', 'Duplicate Detect', 'Live Preview'].map((t) => (
             <span key={t}>{t}</span>
           ))}
@@ -867,9 +866,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
 
   if (step === 1) {
     return (
-      <MergeShell fab={fab}>
+      <MergeShell>
       <div className="pdfconv-main-view">
         <Steps current={1} />
+        <div className="mergepdf-fab-inline">{fab}</div>
 
         <div className="pdfconv-filebar">
           <span className="pdfconv-filebar-icon"><Icon name="merge" size={18} /></span>
@@ -980,9 +980,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
   if (step === 2) {
     if (!analysis) {
       return (
-        <MergeShell fab={fab}>
+        <MergeShell>
         <div className="pdfconv-processing">
           <Steps current={2} />
+          <div className="mergepdf-fab-inline">{fab}</div>
           <ProgressRing progress={0.3} label="Analyzing" />
           <p className="muted">Preparing AI analysis…</p>
         </div>
@@ -993,9 +994,10 @@ export default function MergePdfRunner({ tool }: { tool: Tool }) {
     const recommended = analysis.qualityScore < 70 ? 'compressed' : 'normal';
 
     return (
-      <MergeShell fab={fab}>
+      <MergeShell>
       <div className="pdfconv-main-view">
         <Steps current={2} />
+        <div className="mergepdf-fab-inline">{fab}</div>
 
         <div className="pdfconv-review-hero">
           <div className="mergepdf-ai-score-ring" data-score={analysis.qualityScore >= 80 ? 'high' : analysis.qualityScore >= 50 ? 'mid' : 'low'}>
