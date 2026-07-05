@@ -1,4 +1,5 @@
 import { apiErr, apiOk } from '@/lib/api-response';
+import { ensureWelcomeNotification } from '@/lib/notifications';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rate-limit';
@@ -15,52 +16,53 @@ export interface NotificationRow {
   created_at: string;
 }
 
-/** GET /api/notifications — latest 20 for the signed-in user + unread count. */
-export async function GET() {
+/** GET /api/notifications — latest notifications for signed-in user + unread count. */
+export async function GET(req: Request) {
   if (!getSupabaseEnv()) return apiOk({ notifications: [], unreadCount: 0 });
 
   const { supabase } = await createRouteHandlerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return apiErr('Sign in to view notifications', 401);
 
-  const { data: fetched, error } = await supabase
+  const url = new URL(req.url);
+  const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit') || 20)));
+  const offset = Math.max(0, Number(url.searchParams.get('offset') || 0));
+
+  await ensureWelcomeNotification(supabase, user.id);
+
+  const { data: notifications, error } = await supabase
     .from('notifications')
     .select('id, type, title, body, href, read, created_at')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .range(offset, offset + limit - 1);
 
   if (error) {
     console.error('[notifications] fetch failed:', error.message);
     return apiErr('Could not load notifications', 500);
   }
 
-  // First visit: seed a welcome notification so the inbox is never empty.
-  let notifications = fetched;
-  if (!notifications || notifications.length === 0) {
-    const { data: seeded } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: user.id,
-        type: 'system',
-        title: 'Welcome to ToolNest 🎉',
-        body: 'Explore 120+ tools — PDF, Image, AI and more. Your files and history live in your dashboard.',
-        href: '/tools',
-      })
-      .select('id, type, title, body, href, read, created_at');
-    notifications = seeded ?? [];
-  }
-
   const { count } = await supabase
     .from('notifications')
     .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
     .eq('read', false);
 
-  return apiOk({ notifications, unreadCount: count ?? 0 });
+  const { count: total } = await supabase
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+
+  return apiOk({
+    notifications: notifications ?? [],
+    unreadCount: count ?? 0,
+    total: total ?? 0,
+  });
 }
 
 /** PATCH /api/notifications — mark read. Body: { ids?: string[]; all?: true } */
 export async function PATCH(req: Request) {
-  if (!getSupabaseEnv()) return apiOk({ updated: 0 });
+  if (!getSupabaseEnv()) return apiOk({ ok: true });
 
   const { supabase } = await createRouteHandlerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -88,7 +90,38 @@ export async function PATCH(req: Request) {
   return apiOk({ ok: true });
 }
 
-/** POST /api/notifications — create a notification for the signed-in user (used by client-side tool flows). */
+/** DELETE /api/notifications — dismiss notifications. Body: { ids?: string[]; all?: true; readOnly?: true } */
+export async function DELETE(req: Request) {
+  if (!getSupabaseEnv()) return apiOk({ deleted: 0 });
+
+  const { supabase } = await createRouteHandlerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return apiErr('Sign in first', 401);
+
+  let body: { ids?: string[]; all?: boolean; readOnly?: boolean };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return apiErr('Invalid request body', 400);
+  }
+
+  let query = supabase.from('notifications').delete().eq('user_id', user.id);
+  if (body.readOnly) query = query.eq('read', true);
+  if (!body.all) {
+    const ids = (body.ids ?? []).filter((x) => typeof x === 'string').slice(0, 50);
+    if (ids.length === 0) return apiErr('Nothing to delete', 400);
+    query = query.in('id', ids);
+  }
+
+  const { error, data } = await query.select('id');
+  if (error) {
+    console.error('[notifications] delete failed:', error.message);
+    return apiErr('Could not delete notifications', 500);
+  }
+  return apiOk({ deleted: data?.length ?? 0 });
+}
+
+/** POST /api/notifications — create for signed-in user (client tool flows). */
 export async function POST(req: Request) {
   const rl = rateLimit(`notif:${clientIp(req)}`, 20, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.retryAfterSeconds);

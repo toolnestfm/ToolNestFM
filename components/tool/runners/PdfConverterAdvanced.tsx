@@ -18,13 +18,24 @@ const ShareModal = dynamic(() => import('../ShareModal'), { ssr: false });
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type TargetFormat = 'docx' | 'xlsx' | 'pptx' | 'txt' | 'html' | 'rtf' | 'jpg' | 'png' | 'webp' | 'csv' | 'md';
-type ViewMode = 'upload' | 'analysis' | 'convert' | 'results' | 'diff' | 'compare';
+type ViewMode = 'upload' | 'analysis' | 'review' | 'convert' | 'results' | 'diff' | 'compare';
+
+interface ConvertSettings {
+  imageQuality: number; // 0.5–1.0, applies to jpg/webp/pptx
+  resolution: number;   // render scale 1.5–3.0, applies to image/pptx targets
+}
+
+const DEFAULT_SETTINGS: ConvertSettings = { imageQuality: 0.9, resolution: 2 };
+
+const IMAGE_TARGETS: TargetFormat[] = ['jpg', 'png', 'webp', 'pptx'];
 
 interface ConversionResult {
   format: TargetFormat;
   file: ResultFile;
   confidence: number;
   previewHtml?: string;
+  originalSize: number;
+  durationMs: number;
 }
 
 const FORMAT_META: Record<TargetFormat, { label: string; icon: string; color: string; desc: string }> = {
@@ -80,8 +91,13 @@ export default function PdfConverterAdvanced() {
   const [dragOver, setDragOver] = useState(false);
   const [pdfPages, setPdfPages] = useState<HTMLCanvasElement[]>([]);
   const [diffPage, setDiffPage] = useState(0);
-  const [structureOpen, setStructureOpen] = useState(true);
+  const [structureOpen, setStructureOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [settings, setSettings] = useState<ConvertSettings>(DEFAULT_SETTINGS);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [urlOpen, setUrlOpen] = useState(false);
+  const [urlValue, setUrlValue] = useState('');
+  const [urlBusy, setUrlBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ─── File Upload + Auto Analysis ────────────────────────────────────────
@@ -100,11 +116,33 @@ export default function PdfConverterAdvanced() {
       const pages = await renderPdfPages(f, 1.2, undefined);
       setPdfPages(pages.slice(0, 10).map((p) => p.canvas));
 
-      setView('convert');
+      setView('review');
     } catch (e) {
       fail(e);
     }
   }, [fail]);
+
+  const importFromUrl = useCallback(async () => {
+    const url = urlValue.trim();
+    if (!url) return;
+    setUrlBusy(true);
+    try {
+      const res = await fetch(`/api/fetch-pdf?url=${encodeURIComponent(url)}`);
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(json?.error || 'Could not import that URL');
+      }
+      const blob = await res.blob();
+      const name = (url.split('/').pop() || 'document').split('?')[0];
+      setUrlOpen(false);
+      setUrlValue('');
+      void handleFile(new File([blob], name.endsWith('.pdf') ? name : `${name}.pdf`, { type: 'application/pdf' }));
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Import failed', 'error');
+    } finally {
+      setUrlBusy(false);
+    }
+  }, [urlValue, handleFile, toast]);
 
   const pasteFromClipboard = useCallback(async () => {
     try {
@@ -139,10 +177,11 @@ export default function PdfConverterAdvanced() {
 
   const convertToFormat = async (fmt: TargetFormat): Promise<ConversionResult> => {
     if (!file) throw new Error('No file');
-    const { file: result, previewHtml: enginePreview } = await runConversion(file, fmt, (p) => setConvertProgress(p));
+    const t0 = performance.now();
+    const { file: result, previewHtml: enginePreview } = await runConversion(file, fmt, settings, (p) => setConvertProgress(p));
     const conf = structure ? calculateConversionConfidence(structure, fmt) : { overall: 80, perPage: [], issues: [] };
     const previewHtml = enginePreview ?? (await generatePreview(result.blob, fmt));
-    return { format: fmt, file: result, confidence: conf.overall, previewHtml };
+    return { format: fmt, file: result, confidence: conf.overall, previewHtml, originalSize: file.size, durationMs: performance.now() - t0 };
   };
 
   const startConversion = async () => {
@@ -183,7 +222,7 @@ export default function PdfConverterAdvanced() {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
-  const resetAll = () => { reset(); setFile(null); setView('upload'); setStructure(null); setResults([]); setTargetFormat(null); setCompareFormats([]); setPdfPages([]); };
+  const resetAll = () => { reset(); setFile(null); setView('upload'); setStructure(null); setResults([]); setTargetFormat(null); setCompareFormats([]); setPdfPages([]); setSettings(DEFAULT_SETTINGS); setAdvancedOpen(false); };
 
   // ─── Confidence Data ─────────────────────────────────────────────────────
 
@@ -230,8 +269,26 @@ export default function PdfConverterAdvanced() {
           <button type="button" className="btn btn-outline btn-sm" onClick={() => void pasteFromClipboard()}>
             <Icon name="clipboard" size={15} /> Paste from Clipboard
           </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setUrlOpen((o) => !o)}>
+            <Icon name="link" size={15} /> Import from URL
+          </button>
           <span className="muted">or press Ctrl+V anywhere</span>
         </div>
+        {urlOpen && (
+          <div className="pdfconv-url-row">
+            <input
+              type="url"
+              placeholder="https://example.com/document.pdf"
+              value={urlValue}
+              onChange={(e) => setUrlValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void importFromUrl()}
+              autoFocus
+            />
+            <button className="btn btn-primary btn-sm" disabled={urlBusy || !urlValue.trim()} onClick={() => void importFromUrl()}>
+              {urlBusy ? <div className="spinner spinner-sm" /> : <Icon name="download" size={15} />} Fetch
+            </button>
+          </div>
+        )}
         <input ref={inputRef} type="file" hidden accept="application/pdf" onChange={(e) => { if (e.target.files?.[0]) void handleFile(e.target.files[0]); e.target.value = ''; }} />
         {phase === 'error' && <ErrorBox message={error} onRetry={reset} />}
       </div>
@@ -257,6 +314,74 @@ export default function PdfConverterAdvanced() {
         </div>
         <h3 style={{ marginTop: 20 }}>Analyzing Document Structure</h3>
         <p className="muted">Detecting headings, tables, images, and document type...</p>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RENDER: ANALYZE REVIEW (step 2 — distinct screen)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (view === 'review' && structure) {
+    const docLabel = structure.documentType === 'unknown'
+      ? 'General Document'
+      : structure.documentType.charAt(0).toUpperCase() + structure.documentType.slice(1);
+    const facts = [
+      { icon: 'file-text', label: 'Pages', value: String(structure.pageCount) },
+      { icon: 'type', label: 'Words', value: structure.totalWords.toLocaleString() },
+      { icon: 'table', label: 'Tables', value: String(structure.tables.length) },
+      { icon: 'image', label: 'Images', value: String(structure.images.length) },
+    ];
+    return (
+      <div className="pdfconv-main-view">
+        <Steps current={1} />
+
+        <div className="pdfconv-review-hero">
+          <div className="pdfconv-review-badge">
+            <Icon name="sparkles" size={18} />
+            <div>
+              <b>Analysis complete</b>
+              <span>{docLabel} · {structure.documentTypeConfidence}% match confidence</span>
+            </div>
+          </div>
+          <div className="pdfconv-review-facts">
+            {facts.map((f) => (
+              <div key={f.label} className="pdfconv-review-fact">
+                <span className="pdfconv-review-fact-icon"><Icon name={f.icon} size={16} /></span>
+                <b>{f.value}</b>
+                <span className="muted">{f.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {pageThumbs.length > 0 && (
+          <div className="pdfconv-thumbs" aria-label="Document pages">
+            {pageThumbs.map((src, i) => (
+              <figure key={i} className="pdfconv-thumb">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt={`Page ${i + 1}`} loading="lazy" />
+                <figcaption>{i + 1}</figcaption>
+              </figure>
+            ))}
+            {structure.pageCount > pageThumbs.length && (
+              <div className="pdfconv-thumb pdfconv-thumb-more">+{structure.pageCount - pageThumbs.length}</div>
+            )}
+          </div>
+        )}
+
+        <div className="pdfconv-ai-rec" onClick={() => { setTargetFormat(structure.formatRecommendation.format as TargetFormat); setView('convert'); }}>
+          <Icon name="sparkles" size={16} />
+          <span><b>AI recommends {FORMAT_META[structure.formatRecommendation.format as TargetFormat]?.label || structure.formatRecommendation.format}</b> &mdash; {structure.formatRecommendation.reason}</span>
+          <Icon name="chevron-right" size={14} />
+        </div>
+
+        <div className="pdfconv-review-actions">
+          <button className="btn btn-ghost" onClick={resetAll}><Icon name="upload" size={15} /> Change file</button>
+          <button className="btn btn-primary pdfconv-convert-btn" onClick={() => setView('convert')} style={{ maxWidth: 320 }}>
+            Continue to Convert <Icon name="arrow-right" size={16} />
+          </button>
+        </div>
       </div>
     );
   }
@@ -376,12 +501,35 @@ export default function PdfConverterAdvanced() {
     return (
       <div className="pdfconv-results">
         <Steps current={3} />
-        <div className="pdfconv-results-header">
-          <div className="pdfconv-results-badge"><Icon name="check-circle" size={18} /> Conversion Complete</div>
-          <div className={`pdfconv-confidence-badge ${r.confidence >= 80 ? 'high' : r.confidence >= 50 ? 'mid' : 'low'}`}>
-            <Icon name="sparkles" size={13} /> {r.confidence}% Confidence
+
+        {/* Success hero with confetti */}
+        <div className="pdfconv-success">
+          <div className="pdfconv-confetti" aria-hidden>
+            {Array.from({ length: 14 }).map((_, i) => <span key={i} style={{ ['--i' as string]: i }} />)}
           </div>
+          <div className="pdfconv-success-check"><Icon name="check" size={30} /></div>
+          <h3>Your file is ready!</h3>
+          <p className="muted">Converted to {FORMAT_META[r.format].label} · {r.confidence}% accuracy</p>
+          <button className="btn btn-primary pdfconv-convert-btn" style={{ maxWidth: 300 }} onClick={() => download(r.file)}>
+            <Icon name="download" size={17} /> Download {FORMAT_META[r.format].label}
+          </button>
         </div>
+
+        {/* Conversion report — real stats */}
+        <div className="pdfconv-report">
+          {[
+            { label: 'Output size', value: formatBytes(r.file.blob.size) },
+            { label: 'Original', value: formatBytes(r.originalSize) },
+            { label: 'Processed in', value: `${(r.durationMs / 1000).toFixed(1)}s` },
+            { label: 'Pages', value: String(structure?.pageCount ?? '—') },
+          ].map((s) => (
+            <div key={s.label} className="pdfconv-report-cell">
+              <b>{s.value}</b>
+              <span className="muted">{s.label}</span>
+            </div>
+          ))}
+        </div>
+
 
         {/* Live Preview */}
         {r.previewHtml && (
@@ -591,6 +739,34 @@ export default function PdfConverterAdvanced() {
           </div>
         )}
 
+        {/* Advanced settings — only meaningful for image-based targets */}
+        {targetFormat && IMAGE_TARGETS.includes(targetFormat) && (
+          <div className="pdfconv-adv">
+            <button className="pdfconv-advanced-toggle" onClick={() => setAdvancedOpen((o) => !o)}>
+              <Icon name="settings" size={14} /> Advanced image settings
+              <Icon name={advancedOpen ? 'chevron-up' : 'chevron-down'} size={13} />
+            </button>
+            {advancedOpen && (
+              <div className="pdfconv-adv-body">
+                <div className="pdfconv-opt-row">
+                  <label>Resolution <span className="pdfconv-opt-val">{settings.resolution.toFixed(1)}× ({Math.round(settings.resolution * 72)} DPI)</span></label>
+                  <input type="range" min={1.5} max={3} step={0.5} value={settings.resolution}
+                    onChange={(e) => setSettings((s) => ({ ...s, resolution: +e.target.value }))} />
+                  <div className="pdfconv-range-ends"><span>Smaller file</span><span>Sharper</span></div>
+                </div>
+                {targetFormat !== 'png' && (
+                  <div className="pdfconv-opt-row">
+                    <label>Image quality <span className="pdfconv-opt-val">{Math.round(settings.imageQuality * 100)}%</span></label>
+                    <input type="range" min={0.5} max={1} step={0.05} value={settings.imageQuality}
+                      onChange={(e) => setSettings((s) => ({ ...s, imageQuality: +e.target.value }))} />
+                    <div className="pdfconv-range-ends"><span>Compact</span><span>Best</span></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Convert Button */}
         <button className="btn btn-primary pdfconv-convert-btn" disabled={!targetFormat} onClick={() => void startConversion()}>
           <Icon name="zap" size={18} />
@@ -659,6 +835,7 @@ function imagePreview(canvas: HTMLCanvasElement): string {
 async function runConversion(
   file: File,
   target: TargetFormat,
+  settings: ConvertSettings,
   onProgress: (p: number) => void,
 ): Promise<{ file: ResultFile; previewHtml?: string }> {
   if (target === 'docx') {
@@ -696,12 +873,12 @@ async function runConversion(
     };
   }
   if (target === 'pptx') {
-    const rendered = await renderPdfPages(file, 2, (d, t) => onProgress((d / t) * 0.6));
+    const rendered = await renderPdfPages(file, settings.resolution, (d, t) => onProgress((d / t) * 0.6));
     const pptxgenjs = (await import('pptxgenjs')).default;
     const pptx = new pptxgenjs();
     for (let i = 0; i < rendered.length; i++) {
       const slide = pptx.addSlide();
-      const b64 = await blobToBase64(await canvasToBlob(rendered[i].canvas, 'image/png'));
+      const b64 = await blobToBase64(await canvasToBlob(rendered[i].canvas, 'image/jpeg', settings.imageQuality));
       slide.addImage({ data: b64, x: 0, y: 0, w: '100%', h: '100%' });
       onProgress(0.6 + ((i + 1) / rendered.length) * 0.4);
     }
@@ -712,11 +889,11 @@ async function runConversion(
   }
   if (target === 'jpg' || target === 'png' || target === 'webp') {
     const mime = target === 'jpg' ? 'image/jpeg' : target === 'png' ? 'image/png' : 'image/webp';
-    const pages = await renderPdfPages(file, 2, (d, t) => onProgress((d / t) * 0.7));
+    const pages = await renderPdfPages(file, settings.resolution, (d, t) => onProgress((d / t) * 0.7));
     const JSZip = (await import('jszip')).default;
     const zip = new JSZip();
     for (let i = 0; i < pages.length; i++) {
-      zip.file(`page-${i + 1}.${target}`, await canvasToBlob(pages[i].canvas, mime, 0.9));
+      zip.file(`page-${i + 1}.${target}`, await canvasToBlob(pages[i].canvas, mime, settings.imageQuality));
       onProgress(0.7 + ((i + 1) / pages.length) * 0.3);
     }
     return {

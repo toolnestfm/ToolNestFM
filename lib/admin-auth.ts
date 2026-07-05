@@ -37,6 +37,15 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
   return { ok: true, ctx: { userId: user.id, role: profile.role, admin } };
 }
 
+export async function requireSuperAdmin(): Promise<RequireAdminResult> {
+  const result = await requireAdmin();
+  if (!result.ok) return result;
+  if (result.ctx.role !== 'SUPER_ADMIN') {
+    return { ok: false, response: apiErr('Forbidden — super admin required', 403) };
+  }
+  return result;
+}
+
 export async function logAdminAction(
   admin: SupabaseClient,
   actorId: string,

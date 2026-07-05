@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Icon from '../Icon';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { createClient } from '@/lib/supabase/client';
 
 interface Notification {
   id: string;
@@ -55,15 +56,48 @@ export default function NotificationBell() {
         setUnread(json.data.unreadCount);
       }
     } catch {
-      /* offline — ignore */
+      /* offline */
     }
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
     void load();
-    const t = setInterval(load, 60_000);
-    return () => clearInterval(t);
+
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null;
+    try {
+      const supabase = createClient();
+      channel = supabase
+        .channel(`notif:${user.id}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const row = payload.new as Notification;
+            setItems((prev) => [row, ...prev.filter((x) => x.id !== row.id)].slice(0, 20));
+            setUnread((u) => u + 1);
+          },
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          (payload) => {
+            const row = payload.new as Notification;
+            setItems((prev) => prev.map((x) => (x.id === row.id ? row : x)));
+            if (row.read) setUnread((u) => Math.max(0, u - 1));
+          },
+        )
+        .subscribe();
+    } catch {
+      const t = setInterval(load, 30_000);
+      return () => clearInterval(t);
+    }
+
+    return () => {
+      if (channel) {
+        void createClient().removeChannel(channel);
+      }
+    };
   }, [user, load]);
 
   useEffect(() => {
@@ -114,6 +148,19 @@ export default function NotificationBell() {
     }).catch(() => {});
   };
 
+  const dismiss = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = items.find((x) => x.id === id);
+    setItems((xs) => xs.filter((x) => x.id !== id));
+    if (item && !item.read) setUnread((u) => Math.max(0, u - 1));
+    void fetch('/api/notifications', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+    }).catch(() => {});
+  };
+
   if (!user) return null;
 
   return (
@@ -128,7 +175,7 @@ export default function NotificationBell() {
           <div className="notif-head">
             <b>Notifications</b>
             {unread > 0 && (
-              <button className="notif-mark-all" onClick={markAllRead}>Mark all read</button>
+              <button type="button" className="notif-mark-all" onClick={markAllRead}>Mark all read</button>
             )}
           </div>
 
@@ -150,6 +197,14 @@ export default function NotificationBell() {
                       <span className="notif-item-time">{timeAgo(n.created_at)}</span>
                     </span>
                     {!n.read && <span className="notif-unread-dot" aria-label="Unread" />}
+                    <button
+                      type="button"
+                      className="icon-btn notif-dismiss"
+                      aria-label="Dismiss"
+                      onClick={(e) => dismiss(n.id, e)}
+                    >
+                      <Icon name="x" size={12} />
+                    </button>
                   </>
                 );
                 return n.href ? (
@@ -164,6 +219,7 @@ export default function NotificationBell() {
                 ) : (
                   <button
                     key={n.id}
+                    type="button"
                     className={`notif-item ${n.read ? '' : 'unread'}`}
                     onClick={() => markOneRead(n.id)}
                   >
@@ -173,6 +229,12 @@ export default function NotificationBell() {
               })}
             </div>
           )}
+
+          <div className="notif-foot">
+            <Link href="/dashboard/notifications" className="notif-view-all" onClick={() => setOpen(false)}>
+              View all notifications
+            </Link>
+          </div>
         </div>
       )}
     </div>

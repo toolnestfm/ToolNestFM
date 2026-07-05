@@ -9,9 +9,14 @@ export async function fetchCurrentUser(): Promise<User | null> {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, avatar_url, plan, role, tools_used_today')
+    .select('id, full_name, avatar_url, plan, role, tools_used_today, is_banned')
     .eq('id', authUser.id)
     .maybeSingle();
+
+  if (profile?.is_banned) {
+    await supabase.auth.signOut();
+    return null;
+  }
 
   if (profile) {
     return profileToUser(profile as ProfileRow, authUser.email);

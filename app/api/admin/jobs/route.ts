@@ -10,6 +10,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const status = url.searchParams.get('status') ?? '';
+  const userId = url.searchParams.get('userId')?.trim() ?? '';
   const q = url.searchParams.get('q')?.trim() ?? '';
   const page = Math.max(1, Number(url.searchParams.get('page') || 1));
   const limit = 30;
@@ -23,6 +24,7 @@ export async function GET(req: Request) {
     .range(from, to);
 
   if (status) query = query.eq('status', status);
+  if (userId) query = query.eq('user_id', userId);
   if (q) query = query.or(`tool_name.ilike.%${q}%,tool_slug.ilike.%${q}%,category.ilike.%${q}%`);
 
   const { data, error, count } = await query;

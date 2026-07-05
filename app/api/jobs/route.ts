@@ -1,4 +1,5 @@
 import { apiErr, apiOk } from '@/lib/api-response';
+import { notifyJobResult } from '@/lib/notifications';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { getTool } from '@/data/tools';
@@ -71,6 +72,10 @@ export async function POST(req: Request) {
   if (error) {
     console.error('[jobs] insert failed:', error.message);
     return apiErr('Could not record job', 500);
+  }
+
+  if (status === 'completed' || status === 'failed') {
+    void notifyJobResult(supabase, user.id, tool.name, tool.category, tool.slug, status as 'completed' | 'failed');
   }
 
   return apiOk({ recorded: true });

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { adjustCredits } from '@/lib/credits';
+import { createNotification } from '@/lib/notifications';
 
 /**
  * POST /api/billing/webhook — Stripe webhook handler.
@@ -88,6 +89,12 @@ export async function POST(req: Request) {
             await adjustCredits(supabase, obj.client_reference_id, credits, 'purchase', undefined, {
               session_id: obj.id,
             });
+            void createNotification(supabase, obj.client_reference_id, {
+              type: 'billing',
+              title: `${credits.toLocaleString()} credits added`,
+              body: 'Your credit pack purchase was successful. Use credits for AI tools and API calls.',
+              href: '/dashboard/credits',
+            });
           } catch (err) {
             console.error('[billing] credit grant failed:', err instanceof Error ? err.message : err);
             return Response.json({ error: 'Credit grant failed' }, { status: 500 });
@@ -108,10 +115,22 @@ export async function POST(req: Request) {
         console.error('[billing] upgrade failed:', error.message);
         return Response.json({ error: 'Update failed' }, { status: 500 });
       }
+      void createNotification(supabase, obj.client_reference_id, {
+        type: 'billing',
+        title: 'Welcome to ToolNest Pro 👑',
+        body: 'Your Pro subscription is active. Enjoy unlimited tools and premium features.',
+        href: '/dashboard/billing',
+      });
     }
   }
 
   if (event.type === 'customer.subscription.deleted' && obj.customer) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('stripe_customer_id', obj.customer)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('profiles')
       .update({ plan: 'FREE', stripe_subscription_id: null, updated_at: new Date().toISOString() })
@@ -119,6 +138,15 @@ export async function POST(req: Request) {
     if (error) {
       console.error('[billing] downgrade failed:', error.message);
       return Response.json({ error: 'Update failed' }, { status: 500 });
+    }
+
+    if (profile?.id) {
+      void createNotification(supabase, profile.id, {
+        type: 'billing',
+        title: 'Pro subscription ended',
+        body: 'Your plan is now Free. Resubscribe anytime to restore Pro benefits.',
+        href: '/dashboard/billing',
+      });
     }
   }
 
