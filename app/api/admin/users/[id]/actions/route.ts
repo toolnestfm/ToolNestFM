@@ -1,7 +1,7 @@
 import { apiErr, apiOk } from '@/lib/api-response';
 import { logAdminAction, requireAdmin } from '@/lib/admin-auth';
 import { createNotification } from '@/lib/notifications';
-import type { AdminUserAction } from '@/lib/admin-users';
+import { isMissingColumnError, type AdminUserAction } from '@/lib/admin-users';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,17 @@ export async function POST(req: Request, ctx: RouteCtx) {
   const action = body.action;
   if (!action) return apiErr('action is required', 400);
 
-  const { data: profile } = await admin.from('profiles').select('id, role, email, is_banned').eq('id', targetId).maybeSingle();
+  // Fallback select keeps this working before 06_user_admin.sql has run.
+  let profile: { id: string; role: string; email?: string | null; is_banned?: boolean } | null = null;
+  {
+    const full = await admin.from('profiles').select('id, role, email, is_banned').eq('id', targetId).maybeSingle();
+    if (!full.error) {
+      profile = full.data;
+    } else {
+      const legacy = await admin.from('profiles').select('id, role').eq('id', targetId).maybeSingle();
+      profile = legacy.data;
+    }
+  }
   if (!profile) return apiErr('User not found', 404);
 
   if (profile.role === 'SUPER_ADMIN' && actorRole !== 'SUPER_ADMIN') {
@@ -54,7 +64,12 @@ export async function POST(req: Request, ctx: RouteCtx) {
         ban_reason: reason,
         updated_at: new Date().toISOString(),
       }).eq('id', targetId);
-      if (error) return apiErr(error.message, 500);
+      if (error) {
+        if (isMissingColumnError(error.message)) {
+          return apiErr('Auth ban applied, but profile flags need the 06_user_admin.sql migration — run it in the Supabase SQL editor.', 400);
+        }
+        return apiErr(error.message, 500);
+      }
 
       await logAdminAction(admin, actorId, 'user.ban', targetId, { reason });
       return apiOk({ banned: true, reason });
@@ -70,7 +85,12 @@ export async function POST(req: Request, ctx: RouteCtx) {
         ban_reason: null,
         updated_at: new Date().toISOString(),
       }).eq('id', targetId);
-      if (error) return apiErr(error.message, 500);
+      if (error) {
+        if (isMissingColumnError(error.message)) {
+          return apiErr('Auth unban applied, but profile flags need the 06_user_admin.sql migration — run it in the Supabase SQL editor.', 400);
+        }
+        return apiErr(error.message, 500);
+      }
 
       await logAdminAction(admin, actorId, 'user.unban', targetId);
       return apiOk({ unbanned: true });

@@ -1,6 +1,11 @@
 import { apiErr, apiOk } from '@/lib/api-response';
 import { logAdminAction, requireAdmin } from '@/lib/admin-auth';
-import { escapeIlike, PROFILE_SELECT } from '@/lib/admin-users';
+import {
+  escapeIlike,
+  isMissingColumnError,
+  normalizeProfileRow,
+  PROFILE_SELECT_FALLBACKS,
+} from '@/lib/admin-users';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,34 +24,55 @@ export async function GET(req: Request) {
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
-  let query = admin
-    .from('profiles')
-    .select(PROFILE_SELECT, { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range(from, to);
+  // Progressive select: full column set first; if a column from a not-yet-run
+  // migration is missing, retry with smaller legacy sets so the page still works.
+  let rows: Record<string, unknown>[] | null = null;
+  let count: number | null = null;
+  let lastError = '';
 
-  if (plan) query = query.eq('plan', plan.toUpperCase());
-  if (role) query = query.eq('role', role.toUpperCase());
-  if (status === 'banned') query = query.eq('is_banned', true);
-  if (status === 'active') query = query.eq('is_banned', false);
+  for (let attempt = 0; attempt < PROFILE_SELECT_FALLBACKS.length; attempt++) {
+    const select = PROFILE_SELECT_FALLBACKS[attempt];
+    const hasBanCol = attempt === 0;
+    const hasEmailCol = attempt === 0;
 
-  if (q) {
-    const safe = escapeIlike(q);
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
-    if (isUuid) {
-      query = query.eq('id', q);
-    } else if (q.includes('@')) {
-      query = query.ilike('email', `%${safe}%`);
-    } else {
-      query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
+    let query = admin
+      .from('profiles')
+      .select(select, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (plan) query = query.eq('plan', plan.toUpperCase());
+    if (role) query = query.eq('role', role.toUpperCase());
+    if (hasBanCol && status === 'banned') query = query.eq('is_banned', true);
+    if (hasBanCol && status === 'active') query = query.eq('is_banned', false);
+
+    if (q) {
+      const safe = escapeIlike(q);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+      if (isUuid) {
+        query = query.eq('id', q);
+      } else if (q.includes('@') && hasEmailCol) {
+        query = query.ilike('email', `%${safe}%`);
+      } else if (hasEmailCol) {
+        query = query.or(`full_name.ilike.%${safe}%,email.ilike.%${safe}%`);
+      } else {
+        query = query.ilike('full_name', `%${safe}%`);
+      }
     }
+
+    const res = await query;
+    if (!res.error) {
+      rows = (res.data ?? []) as unknown as Record<string, unknown>[];
+      count = res.count ?? 0;
+      break;
+    }
+    lastError = res.error.message;
+    if (!isMissingColumnError(res.error.message)) return apiErr(res.error.message, 500);
   }
 
-  const { data, error, count } = await query;
-  if (error) return apiErr(error.message, 500);
-
-  const rows = data ?? [];
-  const missingEmailIds = rows.filter((p) => !p.email).map((p) => p.id);
+  if (rows === null) return apiErr(lastError || 'Could not load users', 500);
+  const normalized = rows.map(normalizeProfileRow);
+  const missingEmailIds = normalized.filter((p) => !p.email).map((p) => p.id);
   const emails: Record<string, string> = {};
   if (missingEmailIds.length) {
     await Promise.all(
@@ -57,10 +83,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const users = rows.map((p) => ({
+  const users = normalized.map((p) => ({
     ...p,
     email: p.email ?? emails[p.id] ?? '—',
-    is_banned: p.is_banned ?? false,
   }));
 
   return apiOk({ users, total: count ?? 0, page, pages: Math.ceil((count ?? 0) / limit) });

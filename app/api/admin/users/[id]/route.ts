@@ -1,6 +1,6 @@
 import { apiErr, apiOk } from '@/lib/api-response';
 import { logAdminAction, requireAdmin, requireSuperAdmin } from '@/lib/admin-auth';
-import { PROFILE_SELECT } from '@/lib/admin-users';
+import { isMissingColumnError, normalizeProfileRow, PROFILE_SELECT_FALLBACKS } from '@/lib/admin-users';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,9 +12,15 @@ export async function GET(_req: Request, ctx: RouteCtx) {
   const { admin } = auth.ctx;
   const { id } = await ctx.params;
 
-  const { data: profile, error } = await admin.from('profiles').select(PROFILE_SELECT).eq('id', id).maybeSingle();
-  if (error) return apiErr(error.message, 500);
-  if (!profile) return apiErr('User not found', 404);
+  // Progressive select so the page works before 06_user_admin.sql has run.
+  let profileRaw: Record<string, unknown> | null = null;
+  for (const select of PROFILE_SELECT_FALLBACKS) {
+    const { data, error } = await admin.from('profiles').select(select).eq('id', id).maybeSingle();
+    if (!error) { profileRaw = data as Record<string, unknown> | null; break; }
+    if (!isMissingColumnError(error.message)) return apiErr(error.message, 500);
+  }
+  if (!profileRaw) return apiErr('User not found', 404);
+  const profile = normalizeProfileRow(profileRaw);
 
   const { data: authData, error: authErr } = await admin.auth.admin.getUserById(id);
   if (authErr || !authData?.user) return apiErr('Auth user not found', 404);
