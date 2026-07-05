@@ -2,6 +2,7 @@ export type RunnerKind =
   | 'image'
   | 'image-compressor'
   | 'bg-remove'
+  | 'bg-remover-advanced'
   | 'ocr'
   | 'pdf'
   | 'pdf-convert'
@@ -88,7 +89,7 @@ export const tools: Tool[] = [
   { id: 23, slug: 'image-resizer', name: 'Image Resizer', description: 'Resize images to exact dimensions', category: 'image', icon: 'scaling', runner: 'image', mode: 'resize', accept: IMG },
   { id: 24, slug: 'crop-image', name: 'Crop Image', description: 'Crop images to any size or aspect ratio', category: 'image', icon: 'crop', runner: 'image', mode: 'crop', accept: IMG },
   { id: 25, slug: 'rotate-flip-image', name: 'Rotate & Flip Image', description: 'Rotate or mirror images in one click', category: 'image', icon: 'rotate', runner: 'image', mode: 'rotate', accept: IMG },
-  { id: 26, slug: 'background-remover', name: 'Background Remover', description: 'Remove background from any image with AI', category: 'image', icon: 'eraser', badge: 'ai', runner: 'bg-remove', mode: 'remove', accept: IMG },
+  { id: 26, slug: 'background-remover', name: 'Background Remover', description: 'Remove background from any image with AI — ultra HD cutout, hair refine, batch & 100% private', category: 'image', icon: 'eraser', badge: 'ai', runner: 'bg-remover-advanced', mode: 'remove', accept: 'image/*,.zip', multiple: true, keywords: ['background remover', 'remove bg', 'transparent png', 'cutout', 'hair', 'product photo', 'remove background free'] },
   { id: 27, slug: 'background-changer', name: 'Background Changer', description: 'Replace image backgrounds with colors or photos', category: 'image', icon: 'wand', badge: 'ai', runner: 'bg-remove', mode: 'change', accept: IMG },
   { id: 28, slug: 'ai-image-upscaler', name: 'AI Image Upscaler', description: 'Upscale images 2x or 4x with enhanced detail', category: 'image', icon: 'sparkles', badge: 'ai', runner: 'image', mode: 'upscale', accept: IMG },
   { id: 29, slug: 'ai-photo-enhancer', name: 'AI Photo Enhancer', description: 'Auto-enhance brightness, contrast and sharpness', category: 'image', icon: 'sparkles', badge: 'ai', runner: 'image', mode: 'enhance', accept: IMG },

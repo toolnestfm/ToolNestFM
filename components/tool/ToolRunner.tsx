@@ -11,6 +11,7 @@ const loading = () => <Processing label="Loading tool..." />;
 const ImageRunner = dynamic(() => import('./runners/ImageRunner'), { ssr: false, loading });
 const ImageCompressorRunner = dynamic(() => import('./runners/ImageCompressorRunner'), { ssr: false, loading });
 const BgRemoveRunner = dynamic(() => import('./runners/BgRemoveRunner'), { ssr: false, loading });
+const BackgroundRemoverRunner = dynamic(() => import('./runners/BackgroundRemoverRunner'), { ssr: false, loading });
 const OcrRunner = dynamic(() => import('./runners/OcrRunner'), { ssr: false, loading });
 const PdfRunner = dynamic(() => import('./runners/PdfRunner'), { ssr: false, loading });
 const PdfConvertRunner = dynamic(() => import('./runners/PdfConvertRunner'), { ssr: false, loading });
@@ -46,6 +47,7 @@ export default function ToolRunner({ tool }: { tool: Tool }) {
     case 'image': return <ImageRunner tool={tool} />;
     case 'image-compressor': return <ImageCompressorRunner />;
     case 'bg-remove': return <BgRemoveRunner tool={tool} />;
+    case 'bg-remover-advanced': return <BackgroundRemoverRunner tool={tool} />;
     case 'ocr': return <OcrRunner tool={tool} />;
     case 'pdf': return <PdfRunner tool={tool} />;
     case 'pdf-convert': return <PdfConvertRunner tool={tool} />;
