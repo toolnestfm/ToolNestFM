@@ -27,10 +27,11 @@ export async function renderPdfPages(
   file: File,
   scale = 1.5,
   onProgress?: (done: number, total: number) => void,
+  password?: string,
 ): Promise<RenderedPage[]> {
   const pdfjs = await loadPdfJs();
   const data = await file.arrayBuffer();
-  const doc = await pdfjs.getDocument({ data }).promise;
+  const doc = await pdfjs.getDocument({ data, password: password || undefined }).promise;
   const pages: RenderedPage[] = [];
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i);

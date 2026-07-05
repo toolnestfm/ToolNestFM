@@ -31,36 +31,85 @@ export interface FileDropProps {
   hint?: string;
 }
 
+/** Does a file match an HTML accept string (.ext, type/*, exact mime)? */
+export function fileMatchesAccept(file: File, accept?: string): boolean {
+  if (!accept?.trim()) return true;
+  const ext = `.${file.name.split('.').pop()?.toLowerCase() ?? ''}`;
+  const mime = file.type.toLowerCase();
+  return accept.split(',').some((raw) => {
+    const t = raw.trim().toLowerCase();
+    if (!t) return false;
+    if (t.endsWith('/*')) return mime.startsWith(t.slice(0, -1));
+    if (t.startsWith('.')) return ext === t;
+    return mime === t;
+  });
+}
+
+/** Human label + icon for an accept string — "PDF files", "Images", ... */
+export function acceptKind(accept?: string): { label: string; icon: string } {
+  const a = (accept ?? '').toLowerCase();
+  if (!a) return { label: 'Any input', icon: 'upload' };
+  const kinds: string[] = [];
+  if (a.includes('pdf')) kinds.push('PDF');
+  if (a.includes('image')) kinds.push('Images');
+  if (a.includes('video')) kinds.push('Video');
+  if (a.includes('audio')) kinds.push('Audio');
+  if (/\.docx?|\.xlsx?|\.csv|\.txt|\.md|\.html/.test(a)) kinds.push('Documents');
+  const label = kinds.length ? kinds.join(' · ') : accept!.toUpperCase();
+  const icon =
+    kinds[0] === 'PDF' ? 'file-text' :
+    kinds[0] === 'Images' ? 'image' :
+    kinds[0] === 'Video' ? 'video' :
+    kinds[0] === 'Audio' ? 'music' : 'file-text';
+  return { label, icon };
+}
+
 export function FileDrop({ accept, multiple, files, onFiles, hint }: FileDropProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
+  const [rejected, setRejected] = useState<string | null>(null);
+  const kind = acceptKind(accept);
 
   const add = useCallback(
-    (incoming: FileList | null) => {
+    (incoming: FileList | File[] | null) => {
       if (!incoming) return;
       const arr = Array.from(incoming);
-      onFiles(multiple ? [...files, ...arr] : arr.slice(0, 1));
+      const ok = arr.filter((f) => fileMatchesAccept(f, accept));
+      const bad = arr.filter((f) => !fileMatchesAccept(f, accept));
+      if (bad.length > 0) {
+        setRejected(`${bad[0].name} — ye tool sirf ${kind.label} leta hai`);
+        setTimeout(() => setRejected(null), 4000);
+      }
+      if (ok.length === 0) return;
+      setRejected(null);
+      onFiles(multiple ? [...files, ...ok] : ok.slice(0, 1));
     },
-    [files, multiple, onFiles],
+    [files, multiple, onFiles, accept, kind.label],
   );
 
   return (
     <div>
       <div
-        className={`dropzone ${drag ? 'drag-over' : ''}`}
+        className={`dropzone ${drag ? 'drag-over' : ''} ${rejected ? 'drop-rejected' : ''}`}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
         role="button"
         tabIndex={0}
-        aria-label="Upload files"
+        aria-label={`Upload ${kind.label}`}
         onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
       >
-        <span className="dropzone-icon"><Icon name="upload" size={26} /></span>
-        <b>Drag &amp; drop or click to browse</b>
-        <span>{hint || `Supported: ${accept || 'all files'} · Processed 100% in your browser`}</span>
+        <span className="dropzone-icon"><Icon name={kind.icon} size={26} /></span>
+        <b>{drag ? `Drop your ${kind.label} here` : 'Drag & drop or click to browse'}</b>
+        <span className="dropzone-kind">{kind.label}{multiple ? ' · multiple files' : ''}</span>
+        <span>{hint || 'Processed 100% in your browser — files kabhi upload nahi hote'}</span>
       </div>
+      {rejected && (
+        <p className="dropzone-error" role="alert">
+          <Icon name="alert-triangle" size={13} /> {rejected}
+        </p>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -83,7 +132,7 @@ export function FileDrop({ accept, multiple, files, onFiles, hint }: FileDropPro
               picked.push(new File([blob], `pasted-${Date.now()}.${ext}`, { type }));
             }
             if (picked.length === 0) return;
-            onFiles(multiple ? [...files, ...picked] : picked.slice(0, 1));
+            add(picked); // same type validation as drag & drop
           } catch {
             /* clipboard permission denied or no file content */
           }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
-import { ErrorBox, useToolPhase, type ResultFile } from '../shared';
+import { ErrorBox, fileMatchesAccept, useToolPhase, type ResultFile } from '../shared';
 import { renderPdfPages } from '@/lib/pdf';
 import { extractPdfTextSmart } from '@/lib/pdf-smart-text';
 import { canvasToBlob } from '@/lib/image';
@@ -12,12 +12,25 @@ import Icon from '@/components/Icon';
 import dynamic from 'next/dynamic';
 import { looksBrokenBengali, restoreBengaliText } from '@/lib/text-restore';
 import { useUI } from '@/components/GlobalUI';
+import type { Tool } from '@/data/tools';
 
 const ShareModal = dynamic(() => import('../ShareModal'), { ssr: false });
 
+const ACCEPT_DEFAULT = 'application/pdf,image/*,.docx,.xlsx,.xls,.csv,.txt,.md,.html';
+
+type InputKind = 'pdf' | 'to-pdf';
+
+function isPdfFile(f: File) {
+  return f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+}
+
+function isImageFile(f: File) {
+  return f.type.startsWith('image/');
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type TargetFormat = 'docx' | 'xlsx' | 'pptx' | 'txt' | 'html' | 'rtf' | 'jpg' | 'png' | 'webp' | 'csv' | 'md';
+type TargetFormat = 'pdf' | 'docx' | 'xlsx' | 'pptx' | 'txt' | 'html' | 'rtf' | 'jpg' | 'png' | 'webp' | 'csv' | 'md';
 type ViewMode = 'upload' | 'analysis' | 'review' | 'convert' | 'results' | 'diff' | 'compare';
 
 interface ConvertSettings {
@@ -39,6 +52,7 @@ interface ConversionResult {
 }
 
 const FORMAT_META: Record<TargetFormat, { label: string; icon: string; color: string; desc: string }> = {
+  pdf: { label: 'PDF', icon: 'file-text', color: '#ef4444', desc: 'Portable document' },
   docx: { label: 'Word', icon: 'file-text', color: '#2b579a', desc: 'Editable document' },
   xlsx: { label: 'Excel', icon: 'table', color: '#217346', desc: 'Spreadsheet' },
   pptx: { label: 'PowerPoint', icon: 'presentation', color: '#d24726', desc: 'Slides' },
@@ -76,10 +90,12 @@ function Steps({ current }: { current: number }) {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function PdfConverterAdvanced() {
+export default function PdfConverterAdvanced({ tool }: { tool: Tool }) {
   const { phase, setPhase, error, fail, reset } = useToolPhase();
   const { toast } = useUI();
+  const accept = tool.accept ?? ACCEPT_DEFAULT;
   const [file, setFile] = useState<File | null>(null);
+  const [inputKind, setInputKind] = useState<InputKind>('pdf');
   const [view, setView] = useState<ViewMode>('upload');
   const [structure, setStructure] = useState<DocumentStructure | null>(null);
   const [strategies, setStrategies] = useState<PageStrategy[]>([]);
@@ -100,27 +116,68 @@ export default function PdfConverterAdvanced() {
   const [urlBusy, setUrlBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ─── File Upload + Auto Analysis ────────────────────────────────────────
+  // ─── File staging + analysis ─────────────────────────────────────────────
 
-  const handleFile = useCallback(async (f: File) => {
+  const clearStaged = useCallback(() => {
+    setFile(null);
+    setInputKind('pdf');
+    setStructure(null);
+    setStrategies([]);
+    setPdfPages([]);
+    setTargetFormat(null);
+    setResults([]);
+  }, []);
+
+  const stageFile = useCallback((f: File) => {
     setFile(f);
+    setInputKind(isPdfFile(f) ? 'pdf' : 'to-pdf');
+    setStructure(null);
+    setStrategies([]);
+    setPdfPages([]);
+    setTargetFormat(null);
+    setResults([]);
+    setView('upload');
+    setPhase('idle');
+  }, [setPhase]);
+
+  const stageFiles = useCallback((incoming: FileList | File[]) => {
+    const list = Array.from(incoming).filter(Boolean);
+    if (!list.length) return;
+    const supported = list.filter((f) => fileMatchesAccept(f, accept));
+    if (supported.length === 0) {
+      toast(`${list[0].name} supported nahi — PDF, Image, Word, Excel, Text ya HTML dalo`, 'error');
+      return;
+    }
+    if (supported.length > 1) toast(`Using first file — ${supported[0].name}`, 'info');
+    stageFile(supported[0]);
+  }, [stageFile, toast, accept]);
+
+  const runAnalyze = useCallback(async () => {
+    if (!file) return;
+
+    if (inputKind === 'to-pdf') {
+      setTargetFormat('pdf');
+      setView('convert');
+      return;
+    }
+
     setView('analysis');
     setAnalysisProgress(0);
 
     try {
-      const doc = await analyzeDocument(f, (d, t) => setAnalysisProgress(d / t));
+      const doc = await analyzeDocument(file, (d, t) => setAnalysisProgress(d / t));
       setStructure(doc);
       setStrategies(buildPageStrategies(doc));
 
-      // Pre-render first few pages for preview
-      const pages = await renderPdfPages(f, 1.2, undefined);
+      const pages = await renderPdfPages(file, 1.2, undefined);
       setPdfPages(pages.slice(0, 10).map((p) => p.canvas));
 
       setView('review');
     } catch (e) {
       fail(e);
+      setView('upload');
     }
-  }, [fail]);
+  }, [file, inputKind, fail]);
 
   const importFromUrl = useCallback(async () => {
     const url = urlValue.trim();
@@ -136,13 +193,13 @@ export default function PdfConverterAdvanced() {
       const name = (url.split('/').pop() || 'document').split('?')[0];
       setUrlOpen(false);
       setUrlValue('');
-      void handleFile(new File([blob], name.endsWith('.pdf') ? name : `${name}.pdf`, { type: 'application/pdf' }));
+      stageFile(new File([blob], name.endsWith('.pdf') ? name : `${name}.pdf`, { type: 'application/pdf' }));
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Import failed', 'error');
     } finally {
       setUrlBusy(false);
     }
-  }, [urlValue, handleFile, toast]);
+  }, [urlValue, stageFile, toast]);
 
   const pasteFromClipboard = useCallback(async () => {
     try {
@@ -151,27 +208,28 @@ export default function PdfConverterAdvanced() {
         const type = item.types.find((t) => t === 'application/pdf');
         if (!type) continue;
         const blob = await item.getType(type);
-        void handleFile(new File([blob], `pasted-${Date.now()}.pdf`, { type }));
+        stageFile(new File([blob], `pasted-${Date.now()}.pdf`, { type }));
         return;
       }
       toast('No PDF found in clipboard — copy a PDF file first', 'error');
     } catch {
       toast('Clipboard access denied', 'error');
     }
-  }, [handleFile, toast]);
+  }, [stageFile, toast]);
 
-  // Paste support
   useEffect(() => {
     const handler = (e: ClipboardEvent) => {
       const items = e.clipboardData?.files;
-      if (items && items.length > 0 && items[0].type === 'application/pdf') {
+      if (!items?.length) return;
+      const f = items[0];
+      if (f.type === 'application/pdf' || f.type.startsWith('image/') || /\.(docx|xlsx|txt|csv|html|md)$/i.test(f.name)) {
         e.preventDefault();
-        void handleFile(items[0]);
+        stageFile(f);
       }
     };
     document.addEventListener('paste', handler);
     return () => document.removeEventListener('paste', handler);
-  }, [handleFile]);
+  }, [stageFile]);
 
   // ─── Conversion ──────────────────────────────────────────────────────────
 
@@ -179,7 +237,9 @@ export default function PdfConverterAdvanced() {
     if (!file) throw new Error('No file');
     const t0 = performance.now();
     const { file: result, previewHtml: enginePreview } = await runConversion(file, fmt, settings, (p) => setConvertProgress(p));
-    const conf = structure ? calculateConversionConfidence(structure, fmt) : { overall: 80, perPage: [], issues: [] };
+    const conf = structure
+      ? calculateConversionConfidence(structure, fmt)
+      : { overall: fmt === 'pdf' ? 96 : 80, perPage: [] as number[], issues: [] as string[] };
     const previewHtml = enginePreview ?? (await generatePreview(result.blob, fmt));
     return { format: fmt, file: result, confidence: conf.overall, previewHtml, originalSize: file.size, durationMs: performance.now() - t0 };
   };
@@ -222,7 +282,16 @@ export default function PdfConverterAdvanced() {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   };
 
-  const resetAll = () => { reset(); setFile(null); setView('upload'); setStructure(null); setResults([]); setTargetFormat(null); setCompareFormats([]); setPdfPages([]); setSettings(DEFAULT_SETTINGS); setAdvancedOpen(false); };
+  const resetAll = () => {
+    reset();
+    clearStaged();
+    setView('upload');
+    setCompareFormats([]);
+    setSettings(DEFAULT_SETTINGS);
+    setAdvancedOpen(false);
+    setUrlOpen(false);
+    setUrlValue('');
+  };
 
   // ─── Confidence Data ─────────────────────────────────────────────────────
 
@@ -242,56 +311,101 @@ export default function PdfConverterAdvanced() {
 
   if (view === 'upload') {
     return (
-      <div className="pdfconv-layout">
+      <div className="pdfconv-shell pdfconv-layout mergepdf-upload-layout">
         <Steps current={0} />
         <div
           className={`pdfconv-drop ${dragOver ? 'drag-active' : ''}`}
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) void handleFile(f); }}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); stageFiles(e.dataTransfer.files); }}
           role="button" tabIndex={0}
-          aria-label="Upload a PDF"
+          aria-label="Upload a file to convert"
           onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
         >
-          <div className="pdfconv-drop-inner">
-            <span className="pdfconv-drop-icon"><Icon name="upload" size={22} /></span>
-            <div className="pdfconv-drop-text">
-              <b>Drop PDF or <span className="pdfconv-browse-link">browse</span></b>
-              <span className="muted">PDF up to 50MB · 100% private</span>
-            </div>
-            <div className="pdfconv-drop-actions" onClick={(e) => e.stopPropagation()}>
-              <button type="button" className="pdfconv-chip" onClick={() => void pasteFromClipboard()} title="Paste from clipboard">
-                <Icon name="clipboard" size={14} />
-              </button>
-              <button type="button" className="pdfconv-chip" onClick={() => setUrlOpen((o) => !o)} title="Import from URL">
-                <Icon name="link" size={14} />
-              </button>
-            </div>
-          </div>
+          <Icon name="upload" size={32} />
+          <b>Drop files here or click to browse</b>
+          <span>PDF · Word · Excel · Images · Text · 11 output formats · 100% private</span>
         </div>
+        <input
+          ref={inputRef}
+          type="file"
+          hidden
+          accept={accept}
+          multiple
+          onChange={(e) => { stageFiles(e.target.files ?? []); e.target.value = ''; }}
+        />
+
+        <div className="bgrem-upload-actions">
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => inputRef.current?.click()}>
+            <Icon name="file-text" size={14} /> Choose file
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void pasteFromClipboard()}>
+            <Icon name="clipboard" size={14} /> Paste
+          </button>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setUrlOpen((v) => !v)}>
+            <Icon name="link" size={14} /> URL
+          </button>
+        </div>
+
         {urlOpen && (
-          <div className="pdfconv-url-row">
+          <div className="bgrem-url-row">
             <input
               type="url"
               placeholder="https://example.com/document.pdf"
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void importFromUrl()}
-              autoFocus
             />
-            <button className="btn btn-primary btn-sm" disabled={urlBusy || !urlValue.trim()} onClick={() => void importFromUrl()}>
-              {urlBusy ? <div className="spinner spinner-sm" /> : <Icon name="download" size={15} />} Fetch
+            <button type="button" className="btn btn-primary btn-sm" disabled={urlBusy || !urlValue.trim()} onClick={() => void importFromUrl()}>
+              {urlBusy ? 'Fetching…' : 'Import'}
             </button>
           </div>
         )}
+
+        <div className="mergepdf-feature-badges">
+          {['11 Formats', 'AI Analyze', 'Visual Diff', 'OCR', 'Private'].map((b) => <span key={b}>{b}</span>)}
+        </div>
+
         <div className="pdfconv-out-formats">
           {ALL_TARGETS.map((f) => (
             <span key={f} style={{ color: FORMAT_META[f].color }}>{FORMAT_META[f].label}</span>
           ))}
+          <span style={{ color: FORMAT_META.pdf.color }}>PDF</span>
         </div>
-        <input ref={inputRef} type="file" hidden accept="application/pdf" onChange={(e) => { if (e.target.files?.[0]) void handleFile(e.target.files[0]); e.target.value = ''; }} />
+
+        {file && (
+          <div className="pdfconv-filebar">
+            <span className="pdfconv-filebar-icon">
+              <Icon name={isImageFile(file) ? 'image' : 'file-text'} size={20} />
+            </span>
+            <div className="pdfconv-filebar-meta">
+              <b>{file.name}</b>
+              <span className="muted">
+                {formatBytes(file.size)}
+                {inputKind === 'to-pdf' ? ' · Convert to PDF' : ' · PDF → analyze & convert'}
+              </span>
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={clearStaged}>Clear</button>
+          </div>
+        )}
+
+        <div className="pdfword-privacy-badge">
+          <Icon name="shield" size={16} /> Browser processing · files never uploaded · auto-private
+        </div>
+
         {phase === 'error' && <ErrorBox message={error} onRetry={reset} />}
+
+        <div className="pdfword-actions">
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!file}
+            onClick={() => void runAnalyze()}
+          >
+            {inputKind === 'to-pdf' ? 'Continue to Convert →' : 'Analyze & Continue →'}
+          </button>
+        </div>
       </div>
     );
   }
@@ -590,18 +704,20 @@ export default function PdfConverterAdvanced() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   return (
-    <div className="pdfconv-main-view">
+    <div className="pdfconv-shell pdfconv-main-view">
       <Steps current={2} />
 
       {/* File info bar */}
       {file && (
         <div className="pdfconv-filebar">
-          <span className="pdfconv-filebar-icon"><Icon name="file-text" size={18} /></span>
+          <span className="pdfconv-filebar-icon"><Icon name={isImageFile(file) ? 'image' : 'file-text'} size={18} /></span>
           <div className="pdfconv-filebar-meta">
             <b>{file.name}</b>
             <span className="muted">
               {formatBytes(file.size)}
-              {structure ? ` · ${structure.pageCount} page${structure.pageCount === 1 ? '' : 's'}` : ''}
+              {inputKind === 'to-pdf'
+                ? ' · Convert to PDF'
+                : structure ? ` · ${structure.pageCount} page${structure.pageCount === 1 ? '' : 's'}` : ''}
             </span>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={resetAll}>
@@ -695,6 +811,19 @@ export default function PdfConverterAdvanced() {
 
       {/* Format Selection + Conversion */}
       <div className="pdfconv-panel">
+        {inputKind === 'to-pdf' ? (
+          <>
+            <div className="pdfconv-ai-rec" onClick={() => setTargetFormat('pdf')}>
+              <Icon name="file-text" size={16} />
+              <span><b>Output: PDF</b> &mdash; optimized for sharing, printing &amp; uploads</span>
+              <Icon name="chevron-right" size={14} />
+            </div>
+            <button className="btn btn-primary pdfconv-convert-btn" onClick={() => { setTargetFormat('pdf'); void startConversion(); }}>
+              <Icon name="zap" size={18} /> Convert to PDF
+            </button>
+          </>
+        ) : (
+          <>
         {/* AI Recommendation */}
         {structure && (
           <div className="pdfconv-ai-rec" onClick={() => setTargetFormat(structure.formatRecommendation.format as TargetFormat)}>
@@ -796,6 +925,8 @@ export default function PdfConverterAdvanced() {
             </div>
           )}
         </div>
+          </>
+        )}
 
         <p className="pdfconv-privacy-note"><Icon name="lock" size={12} /> 100% browser-based. Files never leave your device.</p>
         {phase === 'error' && <ErrorBox message={error} onRetry={reset} />}
@@ -839,6 +970,68 @@ async function runConversion(
   settings: ConvertSettings,
   onProgress: (p: number) => void,
 ): Promise<{ file: ResultFile; previewHtml?: string }> {
+  if (target === 'pdf') {
+    const { PDFDocument, StandardFonts, rgb } = await import('@cantoo/pdf-lib');
+    const doc = await PDFDocument.create();
+    onProgress(0.08);
+
+    if (isImageFile(file)) {
+      const bytes = await file.arrayBuffer();
+      const embedded = file.type === 'image/png' ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      const page = doc.addPage([595.28, 841.89]);
+      const margin = 36;
+      const maxW = page.getWidth() - margin * 2;
+      const maxH = page.getHeight() - margin * 2;
+      const scale = Math.min(maxW / embedded.width, maxH / embedded.height);
+      const w = embedded.width * scale;
+      const h = embedded.height * scale;
+      page.drawImage(embedded, {
+        x: (page.getWidth() - w) / 2,
+        y: (page.getHeight() - h) / 2,
+        width: w,
+        height: h,
+      });
+    } else if (/\.docx$/i.test(file.name)) {
+      const mammoth = await import('mammoth');
+      const { value: text } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+      const font = await doc.embedFont(StandardFonts.Helvetica);
+      const lines = text.split('\n');
+      let page = doc.addPage([595.28, 841.89]);
+      let y = page.getHeight() - 48;
+      for (let i = 0; i < lines.length; i++) {
+        if (y < 48) { page = doc.addPage([595.28, 841.89]); y = page.getHeight() - 48; }
+        page.drawText(lines[i].slice(0, 90), { x: 48, y, size: 11, font, color: rgb(0.1, 0.1, 0.1) });
+        y -= 14;
+        onProgress(0.08 + ((i + 1) / lines.length) * 0.85);
+      }
+    } else {
+      let text = '';
+      if (/\.(xlsx|xls)$/i.test(file.name)) {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+        text = wb.SheetNames.map((n) => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n');
+      } else {
+        text = await file.text();
+      }
+      const font = await doc.embedFont(StandardFonts.Helvetica);
+      const lines = text.split('\n');
+      let page = doc.addPage([595.28, 841.89]);
+      let y = page.getHeight() - 48;
+      for (let i = 0; i < lines.length; i++) {
+        if (y < 48) { page = doc.addPage([595.28, 841.89]); y = page.getHeight() - 48; }
+        page.drawText(lines[i].slice(0, 96), { x: 48, y, size: 10, font, color: rgb(0.15, 0.15, 0.15) });
+        y -= 13;
+        onProgress(0.08 + ((i + 1) / lines.length) * 0.85);
+      }
+    }
+
+    onProgress(1);
+    const out = await doc.save();
+    return {
+      file: { name: replaceExt(file.name, 'pdf'), blob: new Blob([new Uint8Array(out)], { type: 'application/pdf' }) },
+    };
+  }
+
   if (target === 'docx') {
     const { pages: rawPages } = await extractPdfTextSmart(file, (d, t) => onProgress((d / t) * 0.6));
     const pages = await repairBengaliPages(rawPages, onProgress);

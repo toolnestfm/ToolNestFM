@@ -43,6 +43,48 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
+  if (slug === 'pdf-to-word') {
+    return {
+      title: 'PDF to Word Converter — Free OCR, AI Layout & Indic Support | ToolNest',
+      description: 'Convert PDF to editable DOCX with AI layout repair, table detection, Bengali/Hindi OCR, batch mode & confidence score. 100% private browser processing — better than iLovePDF for Indian documents.',
+    };
+  }
+
+  if (slug === 'compress-pdf') {
+    return {
+      title: 'PDF Compressor — AI Smart Compression, Batch & Quality Report | ToolNest',
+      description: 'Compress PDF files up to 90% smaller with AI smart modes — email, web, print, lossless. Batch queue, compression report, password PDF support. Free & 100% private.',
+    };
+  }
+
+  if (slug === 'background-remover') {
+    return {
+      title: 'Background Remover — AI Ultra HD Cutout, Hair Refine & Batch | ToolNest',
+      description: 'Remove image backgrounds with AI — hair refinement, erase/restore brush, 14 background presets, batch ZIP export. Free, unlimited, 100% browser-private.',
+    };
+  }
+
+  if (slug === 'merge-pdf') {
+    return {
+      title: 'Merge PDF — AI Organize, 10 Merge Modes & Premium Workflow | ToolNest',
+      description: 'Merge multiple PDFs with AI page analysis, drag reorder, optimize modes for PAN/passport/book, batch merge. Free & 100% private browser processing.',
+    };
+  }
+
+  if (slug === 'ai-chat') {
+    return {
+      title: 'AI Chat Assistant — 6 Personas, Streaming, History & Markdown | ToolNest',
+      description: 'Free advanced AI chat powered by Gemini — General, Code, Creative, Analyst, Teacher modes. Chat history, PDF attach, temperature control, export & regenerate.',
+    };
+  }
+
+  if (slug === 'ai-pdf-assistant') {
+    return {
+      title: 'AI PDF Assistant — Chat With Your PDF, Summarize & Extract | ToolNest',
+      description: 'Upload any PDF and ask questions — summaries, key facts, tables, action items. Powered by Gemini with streaming answers. Free & private.',
+    };
+  }
+
   return {
     title: `${tool.name} - Free Online ${cat?.shortName || ''} Tool | ToolNest`,
     description: `${tool.description}. Free, fast and 100% private - runs in your browser. No sign-up required.`,
@@ -86,6 +128,64 @@ function buildFaq(toolName: string, slug: string): { q: string; a: string }[] {
       { q: 'How is this different from TinyPNG or Squoosh?', a: 'ToolNest combines the best of both: Squoosh-level quality control (AVIF, WebP, manual settings, comparison slider) + TinyPNG-level batch processing (unlimited images) + features neither has: AI-powered auto-settings, target file size mode, social media presets, responsive image generation, government document presets, and compression reports — all in one tool, all 100% free and private.' },
     ];
   }
+  if (slug === 'pdf-to-word') {
+    return [
+      { q: 'Is PDF to Word conversion free?', a: 'Yes — unlimited conversions, no signup, no watermarks. OCR and Indic AI repair are included free.' },
+      { q: 'Will formatting be preserved?', a: 'Layout Exact mode preserves tables, fonts and structure. A confidence score shows how faithful the output is. Scanned PDFs use OCR automatically.' },
+      { q: 'Does it work for Bengali and Hindi PDFs?', a: 'Yes — world-first Indic Unicode AI repair fixes broken Bengali/Hindi text from government PDFs. OCR supports ben+eng, hin+eng and more.' },
+      { q: 'Are my files uploaded to a server?', a: 'No. Default Local Mode processes everything in your browser. Privacy Ledger shows zero network uploads.' },
+      { q: 'Can I convert scanned PDFs?', a: 'Yes. OCR runs automatically when the text layer is weak. Use OCR Deep mode for full-page scan conversion.' },
+      { q: 'Can I convert multiple PDFs?', a: 'Yes — batch upload up to 3 files (free tier). Download as individual DOCX files or a ZIP.' },
+    ];
+  }
+  if (slug === 'compress-pdf') {
+    return [
+      { q: 'How much can I compress a PDF?', a: 'Typically 40–85% reduction for image-heavy PDFs. AI Analyze shows compression potential before you compress.' },
+      { q: 'Which compression mode should I use?', a: 'Smart AI picks automatically. Use Email Ready for attachments under 5MB, Web for fast loading, or Lossless for text-only PDFs.' },
+      { q: 'Will quality be affected?', a: 'High Quality and Print modes preserve readability. Maximum mode targets smallest size. Quality score is shown in the report.' },
+      { q: 'Can I compress multiple PDFs at once?', a: 'Yes — batch upload, ZIP import, queue manager, and ZIP download for batch results.' },
+      { q: 'Are password-protected PDFs supported?', a: 'Yes. Enter the owner password on upload and compression runs locally in your browser.' },
+      { q: 'Is it safe for confidential documents?', a: '100% browser processing — files never leave your device. Auto-private, no server storage.' },
+      { q: 'Can I compress to a specific file size?', a: 'Yes — enable Target file size and set KB (e.g. 200KB for Aadhaar UIDAI upload). AI binary-searches quality until the target is met.' },
+    ];
+  }
+  if (slug === 'background-remover') {
+    return [
+      { q: 'Is the background remover free?', a: 'Yes — unlimited use, no signup, no watermarks on exports.' },
+      { q: 'How accurate is the AI cutout?', a: 'Powered by imgly AI with smart hair refinement, edge decontamination and feather controls. Works on people, products, animals and logos.' },
+      { q: 'Can I replace the background?', a: 'Yes — choose from 14 presets (studio, nature, gradient, transparent) or export transparent PNG for use anywhere.' },
+      { q: 'Does it work on phone photos?', a: 'Yes — camera capture, paste from clipboard, and full mobile-responsive editor with touch brush.' },
+      { q: 'Are my photos uploaded?', a: 'Never. AI runs 100% in your browser. First use downloads the model (~40MB), then it is cached.' },
+      { q: 'Can I process multiple images?', a: 'Yes — batch upload, ZIP import, per-image editing, and ZIP download.' },
+    ];
+  }
+  if (slug === 'merge-pdf') {
+    return [
+      { q: 'Is Merge PDF free?', a: 'Yes — unlimited merges, all 10 merge modes, AI organize included free.' },
+      { q: 'How many PDFs can I merge?', a: 'Unlimited files in one session. Drag to reorder pages, exclude pages, and use AI to detect blanks and duplicates.' },
+      { q: 'What are the merge modes?', a: 'Normal, Fast, Lossless, Compressed, PDF/A, Print, Book, PAN Card, Passport, and Certificate — each tuned for different outputs.' },
+      { q: 'Are files uploaded to a server?', a: 'No — 100% browser processing. Your PDFs never leave your device.' },
+    ];
+  }
+  if (slug === 'ai-chat') {
+    return [
+      { q: 'Is AI Chat free?', a: 'Yes — 10 free server messages/day. For unlimited free chat, add your own Gemini API key from aistudio.google.com (free, no credit card). Server uses Gemini 2.0 Flash or Llama 3.3 70B as fallback.' },
+      { q: 'Is AI really free?', a: 'Yes — 100% free in your browser with no API key. ToolNest uses free Gemini Flash via browser AI. Optional: paste your own free Gemini key in AI Settings for unlimited speed.' },
+      { q: 'Why did I see an error before?', a: 'Older versions used a blocked fallback. Now ToolNest auto-switches to free browser AI — no setup needed.' },
+      { q: 'What AI model powers it?', a: 'Google Gemini (flash/pro). You can switch models in AI Settings. Streaming responses with markdown formatting.' },
+      { q: 'What are the chat personas?', a: 'General, Code, Creative, Analyst, Teacher, and PDF Expert — each with tuned system prompts and suggested prompts.' },
+      { q: 'Is chat history saved?', a: 'Yes — up to 50 chats saved locally in your browser. Export any chat as Markdown or JSON.' },
+      { q: 'Can I attach documents?', a: 'Yes — attach PDF, TXT, MD, CSV, or HTML files for context-aware answers.' },
+      { q: 'Are my conversations private?', a: 'Chat history stays in your browser localStorage. Server AI processes messages but does not store them permanently.' },
+    ];
+  }
+  if (slug === 'ai-pdf-assistant') {
+    return [
+      { q: 'How does AI PDF Assistant work?', a: 'Upload a PDF, then ask questions. AI reads the document text and answers from its content only.' },
+      { q: 'Does it work on scanned PDFs?', a: 'Best on text-based PDFs. For scanned documents, use PDF OCR first, then chat with the searchable PDF.' },
+      { q: 'Is it free?', a: 'Yes — 100% free, no API key required. Same free AI as the header AI Assistant.' },
+    ];
+  }
   return [
     { q: `Is ${toolName} free to use?`, a: `Yes - ${toolName} on ToolNest is completely free with no hidden limits, watermarks or sign-up requirements.` },
     { q: 'Are my files safe?', a: 'Absolutely. Processing happens directly in your browser wherever technically possible, so your files never leave your device.' },
@@ -99,6 +199,12 @@ function getTrustExtra(slug: string): string {
   if (slug === 'pdf-converter') return 'Files auto-deleted after 24h';
   if (slug === 'image-compressor') return '100% Private · No Upload';
   if (slug === 'pan-card-photo-resizer') return 'AI Face Crop · 12-Point Compliance';
+  if (slug === 'pdf-to-word') return 'AI Indic Repair · Confidence Score';
+  if (slug === 'compress-pdf') return 'AI Smart Modes · Batch Queue';
+  if (slug === 'background-remover') return 'AI Hair Refine · 100% Private';
+  if (slug === 'merge-pdf') return 'AI Organize · 10 Merge Modes';
+  if (slug === 'ai-chat') return '6 Personas · Chat History · Streaming';
+  if (slug === 'ai-pdf-assistant') return 'PDF Q&A · Summarize · Extract';
   return 'Runs in your browser';
 }
 

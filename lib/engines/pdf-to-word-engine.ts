@@ -297,7 +297,7 @@ async function buildDocx(
     if (
       embedImages === 'yes' &&
       page.imageDataUrl &&
-      (mode === 'ocr-deep' || page.usedOcr)
+      (mode === 'ocr-deep' || mode === 'layout-exact' || page.usedOcr)
     ) {
       try {
         const b64 = page.imageDataUrl.split(',')[1];
@@ -392,6 +392,18 @@ export async function convertPdfToWord(
       options.dpiScale,
     );
 
+    let imageDataUrl = extracted.imageDataUrl;
+    if (
+      options.embedImages === 'yes' &&
+      effectiveMode === 'layout-exact' &&
+      !imageDataUrl &&
+      (profile.pages[pageIdx]?.weakTextLayer || profile.docType === 'scanned' || extracted.lines.length < 4)
+    ) {
+      const rendered = await renderPdfPages(file, options.dpiScale, undefined, options.password);
+      const canvas = rendered[pageIdx]?.canvas;
+      if (canvas) imageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    }
+
     if (extracted.usedOcr) {
       anyOcr = true;
       ocrConfSum += extracted.ocrConfidence;
@@ -417,7 +429,7 @@ export async function convertPdfToWord(
       plainText,
       usedOcr: extracted.usedOcr,
       ocrConfidence: extracted.ocrConfidence,
-      imageDataUrl: extracted.imageDataUrl,
+      imageDataUrl,
     });
   }
 

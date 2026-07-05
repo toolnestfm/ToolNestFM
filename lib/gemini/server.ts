@@ -40,17 +40,21 @@ export async function* geminiStreamServer(
   messages: ChatMessage[],
   system: string,
   model = DEFAULT_MODEL,
+  temperature?: number,
 ): AsyncGenerator<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY is not configured on the server.');
 
-  const body = {
+  const body: Record<string, unknown> = {
     system_instruction: { parts: [{ text: system }] },
     contents: messages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }],
     })),
   };
+  if (temperature !== undefined) {
+    body.generationConfig = { temperature };
+  }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`;
   const res = await fetch(url, {

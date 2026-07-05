@@ -36,6 +36,7 @@ const GovPhotoRunner = dynamic(() => import('./runners/GovPhotoRunner'), { ssr: 
 const PdfEditorRunner = dynamic(() => import('./runners/PdfEditorRunner'), { ssr: false, loading });
 const MergePdfRunner = dynamic(() => import('./runners/MergePdfRunner'), { ssr: false, loading });
 const PdfToWordRunner = dynamic(() => import('./runners/PdfToWordRunner'), { ssr: false, loading });
+const PdfCompressorRunner = dynamic(() => import('./runners/PdfCompressorRunner'), { ssr: false, loading });
 const GradientRunner = dynamic(() => import('./runners/GradientRunner'), { ssr: false, loading });
 
 export default function ToolRunner({ tool }: { tool: Tool }) {
@@ -51,7 +52,7 @@ export default function ToolRunner({ tool }: { tool: Tool }) {
     case 'ocr': return <OcrRunner tool={tool} />;
     case 'pdf': return <PdfRunner tool={tool} />;
     case 'pdf-convert': return <PdfConvertRunner tool={tool} />;
-    case 'pdf-converter': return <PdfConverterAdvanced />;
+    case 'pdf-converter': return <PdfConverterAdvanced tool={tool} />;
     case 'ffmpeg': return <FfmpegRunner tool={tool} />;
     case 'speech': return <SpeechRunner tool={tool} />;
     case 'ai-text': return <AiTextRunner tool={tool} />;
@@ -72,6 +73,7 @@ export default function ToolRunner({ tool }: { tool: Tool }) {
     case 'pdf-editor': return <PdfEditorRunner tool={tool} />;
     case 'merge-pdf': return <MergePdfRunner tool={tool} />;
     case 'pdf-to-word': return <PdfToWordRunner tool={tool} />;
+    case 'pdf-compressor': return <PdfCompressorRunner tool={tool} />;
     case 'gradient': return <GradientRunner />;
     default: return <div className="error-box">This tool is coming soon.</div>;
   }

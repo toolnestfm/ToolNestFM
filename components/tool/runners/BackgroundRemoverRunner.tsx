@@ -46,6 +46,7 @@ interface ImageJob {
   cutout?: HTMLCanvasElement;
   original?: HTMLCanvasElement;
   activeBg: string;
+  customBg?: HTMLCanvasElement;
 }
 
 function uid() {
@@ -209,6 +210,7 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
+  const customBgRef = useRef<HTMLInputElement>(null);
   const editCanvasRef = useRef<HTMLCanvasElement>(null);
   const painting = useRef(false);
   const undoStack = useRef<ImageData[]>([]);
@@ -294,7 +296,8 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
 
   const getDisplayCanvas = useCallback((): HTMLCanvasElement | null => {
     if (!active?.cutout) return null;
-    return compositeWithBackground(active.cutout, active.activeBg);
+    const custom = active.activeBg === 'custom' ? active.customBg : null;
+    return compositeWithBackground(active.cutout, active.activeBg, custom);
   }, [active]);
 
   useEffect(() => {
@@ -357,7 +360,11 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
     try {
       const canvases = jobs.filter((j) => j.cutout).map((j) => ({
         name: j.file.name,
-        canvas: compositeWithBackground(j.cutout!, j.activeBg),
+        canvas: compositeWithBackground(
+          j.cutout!,
+          j.activeBg,
+          j.activeBg === 'custom' ? j.customBg : null,
+        ),
       }));
       let blob: Blob;
       let name: string;
@@ -373,6 +380,29 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
       setPhase('done');
     } catch (e) {
       fail(e);
+    }
+  };
+
+  const handleCustomBg = async (file: File) => {
+    if (!isAcceptedImage(file)) { toast('Please upload an image file', 'error'); return; }
+    const img = await loadImage(file);
+    const [c, ctx] = makeCanvas(img.width, img.height);
+    ctx.drawImage(img, 0, 0);
+    const next = [...jobs];
+    next[activeIdx] = { ...next[activeIdx], activeBg: 'custom', customBg: c };
+    setJobs(next);
+  };
+
+  const copyToClipboard = async () => {
+    if (!active?.cutout) return;
+    try {
+      const canvas = getDisplayCanvas();
+      if (!canvas) return;
+      const blob = await exportCanvas(canvas, 'png', exportQuality, active.activeBg);
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      toast('Copied to clipboard', 'success');
+    } catch {
+      toast('Clipboard copy failed — try Download instead', 'error');
     }
   };
 
@@ -470,7 +500,17 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
                 <em>{p.label}</em>
               </button>
             ))}
+            <button type="button" className={`bgrem-bg-swatch ${active.activeBg === 'custom' ? 'active' : ''}`}
+              title="Upload custom background" onClick={() => customBgRef.current?.click()}>
+              <span className="bgrem-swatch-preview bgrem-swatch-custom"><Icon name="upload" size={16} /></span>
+              <em>Custom</em>
+            </button>
           </div>
+          <input ref={customBgRef} type="file" hidden accept="image/*" onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleCustomBg(f);
+            e.target.value = '';
+          }} />
         </div>
 
         <div className="mergepdf-fab-inline">{fab}</div>
@@ -512,6 +552,7 @@ export default function BackgroundRemoverRunner({ tool }: { tool: Tool }) {
         {phase === 'error' && <ErrorBox message={error} onRetry={() => setPhase('idle')} />}
         <div className="pdfword-actions">
           <button type="button" className="btn btn-ghost" onClick={() => setStep(2)}>← Back</button>
+          <button type="button" className="btn btn-outline" onClick={() => void copyToClipboard()}><Icon name="copy" size={14} /> Copy</button>
           <button type="button" className="btn btn-primary" disabled={phase === 'working'} onClick={() => void runExport()}>
             {phase === 'working' ? 'Exporting...' : 'Download'}
           </button>

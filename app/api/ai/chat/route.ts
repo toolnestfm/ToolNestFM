@@ -1,17 +1,15 @@
 import { apiErr } from '@/lib/api-response';
 import type { ChatMessage } from '@/lib/ai';
-import { geminiStreamServer } from '@/lib/gemini/server';
 import { clientIp, rateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { getSupabaseEnv } from '@/lib/supabase/env';
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { adjustCredits, InsufficientCreditsError } from '@/lib/credits';
 
-const DEFAULT_SYSTEM =
-  'You are ToolNest AI, a helpful assistant inside the ToolNest platform (toolnestfm.com) which offers 120+ online tools. Be concise and helpful.';
+import { buildToolNestDefaultSystem } from '@/lib/engines/toolnest-ai-context';
 
-const BURST_LIMIT = 8;               // per minute per IP
-const FREE_DAILY_LIMIT = 10;         // messages/day for free/anonymous users
+const BURST_LIMIT = 12;              // per minute per IP
+const FREE_DAILY_LIMIT = 50;        // server messages/day — then auto-falls back to free client AI
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function getCallerPlan(): Promise<{ userId: string | null; plan: string }> {
@@ -60,7 +58,7 @@ export async function POST(req: Request) {
         }
       } else {
         return apiErr(
-          'Daily free AI limit reached (10 messages). Sign in to use credits, upgrade to Pro, or add your own Gemini API key in AI Settings.',
+          'Daily server AI limit reached — switching to free browser AI automatically. Or add your own Gemini key in AI Settings for unlimited.',
           429,
         );
       }
@@ -72,6 +70,7 @@ export async function POST(req: Request) {
       messages?: ChatMessage[];
       system?: string;
       model?: string;
+      temperature?: number;
     };
 
     if (!body.messages?.length) {
@@ -85,20 +84,27 @@ export async function POST(req: Request) {
       return apiErr('Message content too large', 400);
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return apiErr('Server AI is not configured', 503);
+    if (!process.env.GEMINI_API_KEY && !process.env.GROQ_API_KEY && !process.env.OPENROUTER_API_KEY) {
+      // No server keys — Pollinations free fallback still works in streamWithFallback
     }
 
-    // Model name goes into the Gemini URL — strict allowlist pattern only.
-    const model = body.model && /^gemini-[a-z0-9.-]{1,40}$/.test(body.model) ? body.model : undefined;
+    const model = body.model && /^[a-z0-9./:_-]{1,80}$/i.test(body.model) ? body.model : undefined;
 
-    const system = (body.system || DEFAULT_SYSTEM).slice(0, 4000);
+    const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user')?.content;
+    const system = (body.system || buildToolNestDefaultSystem(lastUser)).slice(0, 16_000);
     const encoder = new TextEncoder();
+    const { streamWithFallback } = await import('@/lib/gemini/free-providers');
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const text of geminiStreamServer(body.messages!, system, model)) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+          let providerSent = false;
+          for await (const chunk of streamWithFallback(body.messages!, system, model, body.temperature)) {
+            if (!providerSent) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: chunk.provider, model: chunk.model })}\n\n`));
+              providerSent = true;
+            }
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk.text })}\n\n`));
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();
