@@ -23,7 +23,10 @@ export default function AdSlot({ minHeight, className, children }: AdSlotProps) 
   const isPro = user?.plan === 'pro' || user?.plan === 'enterprise';
 
   useEffect(() => {
-    if (isPro) return;
+    // Must depend on `loading`: the slot div only mounts after auth resolves,
+    // so the observer has to attach on that re-render — otherwise inView never
+    // fires and the ad never mounts.
+    if (loading || isPro) return;
     const el = ref.current;
     if (!el) return;
     const obs = new IntersectionObserver(
@@ -34,7 +37,7 @@ export default function AdSlot({ minHeight, className, children }: AdSlotProps) 
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [isPro]);
+  }, [loading, isPro]);
 
   // Don't reserve space (or flash an ad) for Pro users, and wait for auth to resolve.
   if (loading || isPro) return null;
