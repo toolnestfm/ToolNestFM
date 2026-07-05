@@ -245,34 +245,30 @@ export default function PdfConverterAdvanced() {
       <div className="pdfconv-layout">
         <Steps current={0} />
         <div
-          className={`pdfconv-dropzone ${dragOver ? 'drag-active' : ''}`}
+          className={`pdfconv-drop ${dragOver ? 'drag-active' : ''}`}
           onClick={() => inputRef.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) void handleFile(f); }}
           role="button" tabIndex={0}
+          aria-label="Upload a PDF"
           onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
         >
-          <div className="pdfconv-drop-icon"><Icon name="upload" size={32} /></div>
-          <h3>Drop your PDF here</h3>
-          <p>or <button className="pdfconv-browse-link" onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>browse files</button> or paste from clipboard</p>
-          <div className="pdfconv-format-badges">
-            {ALL_TARGETS.map((f) => (
-              <span key={f} style={{ color: FORMAT_META[f].color, borderColor: FORMAT_META[f].color + '55', background: FORMAT_META[f].color + '14' }}>
-                {FORMAT_META[f].label}
-              </span>
-            ))}
+          <div className="pdfconv-drop-inner">
+            <span className="pdfconv-drop-icon"><Icon name="upload" size={22} /></span>
+            <div className="pdfconv-drop-text">
+              <b>Drop PDF or <span className="pdfconv-browse-link">browse</span></b>
+              <span className="muted">PDF up to 50MB · 100% private</span>
+            </div>
+            <div className="pdfconv-drop-actions" onClick={(e) => e.stopPropagation()}>
+              <button type="button" className="pdfconv-chip" onClick={() => void pasteFromClipboard()} title="Paste from clipboard">
+                <Icon name="clipboard" size={14} />
+              </button>
+              <button type="button" className="pdfconv-chip" onClick={() => setUrlOpen((o) => !o)} title="Import from URL">
+                <Icon name="link" size={14} />
+              </button>
+            </div>
           </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>AI-powered document intelligence &middot; Visual diff &middot; Confidence scoring</p>
-        </div>
-        <div className="paste-row">
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => void pasteFromClipboard()}>
-            <Icon name="clipboard" size={15} /> Paste from Clipboard
-          </button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => setUrlOpen((o) => !o)}>
-            <Icon name="link" size={15} /> Import from URL
-          </button>
-          <span className="muted">or press Ctrl+V anywhere</span>
         </div>
         {urlOpen && (
           <div className="pdfconv-url-row">
@@ -289,6 +285,11 @@ export default function PdfConverterAdvanced() {
             </button>
           </div>
         )}
+        <div className="pdfconv-out-formats">
+          {ALL_TARGETS.map((f) => (
+            <span key={f} style={{ color: FORMAT_META[f].color }}>{FORMAT_META[f].label}</span>
+          ))}
+        </div>
         <input ref={inputRef} type="file" hidden accept="application/pdf" onChange={(e) => { if (e.target.files?.[0]) void handleFile(e.target.files[0]); e.target.value = ''; }} />
         {phase === 'error' && <ErrorBox message={error} onRetry={reset} />}
       </div>

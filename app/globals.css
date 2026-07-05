@@ -947,8 +947,58 @@ canvas.preview-canvas { max-width: 100%; border-radius: var(--radius-md); border
   color: var(--text-muted); font-size: 13px; font-weight: 700;
 }
 
+/* ── PDF Converter: compact premium dropzone ── */
+.pdfconv-drop {
+  position: relative; cursor: pointer; border-radius: 16px;
+  padding: 2px; /* space for the animated gradient border */
+  background:
+    linear-gradient(var(--bg-surface), var(--bg-surface)) padding-box,
+    conic-gradient(from var(--a, 0deg), #7c3aed, #c026d3, #3b82f6, #7c3aed) border-box;
+  border: 2px solid transparent;
+  animation: pdfconv-rotate 6s linear infinite;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+@property --a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+@keyframes pdfconv-rotate { to { --a: 360deg; } }
+.pdfconv-drop:hover { box-shadow: 0 10px 34px rgba(124, 58, 237, 0.22); }
+.pdfconv-drop.drag-active { transform: scale(1.01); box-shadow: 0 12px 42px rgba(124, 58, 237, 0.4); }
+.pdfconv-drop-inner {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px; border-radius: 14px;
+  background:
+    radial-gradient(ellipse 60% 120% at 15% 0%, rgba(124, 58, 237, 0.08), transparent 70%),
+    var(--bg-surface);
+}
+.pdfconv-drop-icon {
+  width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.22), rgba(192, 38, 211, 0.16));
+  color: var(--brand-primary-hover);
+  animation: float-gentle 3s ease-in-out infinite;
+}
+.pdfconv-drop-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pdfconv-drop-text b { font-size: 15px; }
+.pdfconv-drop-text .muted { font-size: 12px; }
+.pdfconv-drop-text .pdfconv-browse-link { color: var(--brand-primary-hover); text-decoration: underline; }
+.pdfconv-drop-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.pdfconv-chip {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-surface-2); border: 1px solid var(--border-subtle);
+  color: var(--text-secondary); transition: all 0.15s;
+}
+.pdfconv-chip:hover { border-color: var(--brand-primary); color: var(--brand-primary-hover); }
+@media (prefers-reduced-motion: reduce) {
+  .pdfconv-drop { animation: none; }
+  .pdfconv-drop-icon { animation: none; }
+}
+.pdfconv-out-formats {
+  display: flex; flex-wrap: wrap; gap: 5px 12px; justify-content: center;
+  margin-top: 12px; font-size: 11px; font-weight: 600; opacity: 0.75;
+}
+
 /* ── PDF Converter: import-from-URL row ── */
-.pdfconv-url-row { display: flex; gap: 8px; }
+.pdfconv-url-row { display: flex; gap: 8px; margin-top: 10px; }
 .pdfconv-url-row input {
   flex: 1; min-width: 0; padding: 10px 14px; font-size: 13px;
   background: var(--bg-surface-2); border: 1px solid var(--border-subtle);
