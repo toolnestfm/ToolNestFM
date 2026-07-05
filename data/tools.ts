@@ -23,7 +23,8 @@ export type RunnerKind =
   | 'file-convert'
   | 'social'
   | 'gov-photo-advanced'
-  | 'pdf-editor';
+  | 'pdf-editor'
+  | 'merge-pdf';
 
 export type ToolConfig = Record<string, unknown>;
 
@@ -60,7 +61,7 @@ export const tools: Tool[] = [
   // ─── 📄 PDF Tools (12 + 2 aliases) ─────────────────────────────────────
   { id: 9, slug: 'pdf-converter', name: 'PDF Converter', description: 'Convert PDF to Word, Excel, PowerPoint, Images and more — or convert any file to PDF', category: 'pdf', icon: 'file-text', badge: 'popular', runner: 'pdf-converter', mode: 'smart', accept: `${IMG},${PDF},.docx,.xlsx,.xls,.csv,.txt,.md,.html`, multiple: true, keywords: ['convert', 'pdf to word', 'pdf to excel', 'pdf to jpg', 'word to pdf', 'image to pdf', 'pdf to png', 'pdf to text', 'pdf to pptx'] },
   { id: 10, slug: 'pdf-editor', name: 'PDF Editor', description: 'Visual PDF editor — annotate, edit text, shapes, AI assistant', category: 'pdf', icon: 'file-pen', runner: 'pdf-editor', mode: 'edit', accept: PDF },
-  { id: 11, slug: 'merge-pdf', name: 'Merge PDF', description: 'Merge multiple PDF files into one document', category: 'pdf', icon: 'merge', badge: 'popular', runner: 'pdf', mode: 'merge', accept: PDF, multiple: true },
+  { id: 11, slug: 'merge-pdf', name: 'Merge PDF', description: 'Merge multiple PDF files into one document — AI organize, optimize & premium merge modes', category: 'pdf', icon: 'merge', badge: 'popular', runner: 'merge-pdf', mode: 'merge', accept: PDF, multiple: true },
   { id: 12, slug: 'split-pdf', name: 'Split PDF', description: 'Split a PDF into separate pages or ranges', category: 'pdf', icon: 'split', runner: 'pdf', mode: 'split', accept: PDF },
   { id: 13, slug: 'compress-pdf', name: 'PDF Compressor', description: 'Reduce PDF file size without quality loss', category: 'pdf', icon: 'file-down', badge: 'popular', runner: 'pdf', mode: 'compress', accept: PDF },
   { id: 14, slug: 'pdf-ocr', name: 'PDF OCR', description: 'Make scanned PDFs searchable with OCR', category: 'pdf', icon: 'scan-text', badge: 'ai', runner: 'ocr', mode: 'pdf', accept: PDF },

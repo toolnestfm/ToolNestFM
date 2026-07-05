@@ -34,6 +34,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="logo-mark admin-mark"><Icon name="lock" size={22} /></span>
             <h1>Access denied</h1>
             <p className="muted">This account does not have admin privileges.</p>
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              Signed in as <b>{user.email}</b>
+            </p>
+            <p className="muted" style={{ fontSize: 12 }}>
+              Admin access requires an ADMIN or SUPER_ADMIN role. Sign in with your admin email or contact a super admin.
+            </p>
           </div>
           <div className="admin-actions-row" style={{ justifyContent: 'center' }}>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => void signOut()}>

@@ -33,6 +33,7 @@ const FileConvertRunner = dynamic(() => import('./runners/FileConvertRunner'), {
 const SocialRunner = dynamic(() => import('./runners/SocialRunner'), { ssr: false, loading });
 const GovPhotoRunner = dynamic(() => import('./runners/GovPhotoRunner'), { ssr: false, loading });
 const PdfEditorRunner = dynamic(() => import('./runners/PdfEditorRunner'), { ssr: false, loading });
+const MergePdfRunner = dynamic(() => import('./runners/MergePdfRunner'), { ssr: false, loading });
 
 export default function ToolRunner({ tool }: { tool: Tool }) {
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function ToolRunner({ tool }: { tool: Tool }) {
     case 'social': return <SocialRunner tool={tool} />;
     case 'gov-photo-advanced': return <GovPhotoRunner tool={tool} />;
     case 'pdf-editor': return <PdfEditorRunner tool={tool} />;
+    case 'merge-pdf': return <MergePdfRunner tool={tool} />;
     default: return <div className="error-box">This tool is coming soon.</div>;
   }
 }

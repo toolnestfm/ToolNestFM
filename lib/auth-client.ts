@@ -1,26 +1,44 @@
 import type { User } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/client';
 import { profileToUser, type ProfileRow } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/client';
 
 export async function fetchCurrentUser(): Promise<User | null> {
   const supabase = createClient();
   const { data: { user: authUser } } = await supabase.auth.getUser();
   if (!authUser?.email) return null;
 
-  const { data: profile } = await supabase
+  try {
+    const res = await fetch('/api/me', { cache: 'no-store' });
+    if (res.ok) {
+      const json = (await res.json()) as { success: boolean; data?: { user: User } };
+      if (json.success && json.data?.user) return json.data.user;
+    }
+  } catch {
+    /* fall through */
+  }
+
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, full_name, avatar_url, plan, role, tools_used_today, is_banned')
     .eq('id', authUser.id)
     .maybeSingle();
 
-  if (profile?.is_banned) {
+  let row = profile;
+  if (error || !row) {
+    const { data: legacy } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, plan, role, tools_used_today')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    row = legacy ? { ...legacy, is_banned: false } : null;
+  }
+
+  if (row?.is_banned) {
     await supabase.auth.signOut();
     return null;
   }
 
-  if (profile) {
-    return profileToUser(profile as ProfileRow, authUser.email);
-  }
+  if (row) return profileToUser(row as ProfileRow, authUser.email);
 
   return profileToUser(
     {
