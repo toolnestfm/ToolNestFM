@@ -8,13 +8,49 @@ import { useUI } from '@/components/GlobalUI';
 
 interface Stop { id: number; color: string; pos: number }
 type GType = 'linear' | 'radial' | 'conic' | 'mesh' | 'aurora' | 'noise';
+type AnimMode = 'none' | 'shift' | 'wave' | 'hue' | 'pulse' | 'zoom';
 
 interface GState {
   type: GType;
   angle: number;
   stops: Stop[];
-  animate: boolean;
+  anim: AnimMode;
   speed: number; // seconds per loop
+}
+
+const ANIMS: Array<{ id: AnimMode; label: string }> = [
+  { id: 'none', label: 'Off' },
+  { id: 'shift', label: 'Shift' },
+  { id: 'wave', label: 'Wave' },
+  { id: 'hue', label: 'Hue spin' },
+  { id: 'pulse', label: 'Pulse' },
+  { id: 'zoom', label: 'Zoom' },
+];
+
+const ANIM_KEYFRAMES: Record<Exclude<AnimMode, 'none'>, string> = {
+  shift: `@keyframes tn-grad-shift {\n  0%, 100% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n}`,
+  wave: `@keyframes tn-grad-wave {\n  0%, 100% { background-position: 0% 0%; }\n  25% { background-position: 100% 50%; }\n  50% { background-position: 50% 100%; }\n  75% { background-position: 0% 50%; }\n}`,
+  hue: `@keyframes tn-grad-hue {\n  to { filter: hue-rotate(360deg); }\n}`,
+  pulse: `@keyframes tn-grad-pulse {\n  0%, 100% { filter: brightness(1); }\n  50% { filter: brightness(1.25) saturate(1.35); }\n}`,
+  zoom: `@keyframes tn-grad-zoom {\n  0%, 100% { background-size: 160% 160%; background-position: 50% 50%; }\n  50% { background-size: 280% 280%; background-position: 62% 38%; }\n}`,
+};
+
+function animStyle(anim: AnimMode, speed: number): React.CSSProperties {
+  switch (anim) {
+    case 'shift': return { backgroundSize: '200% 200%', animation: `tn-grad-shift ${speed}s ease infinite` };
+    case 'wave': return { backgroundSize: '300% 300%', animation: `tn-grad-wave ${speed}s ease-in-out infinite` };
+    case 'hue': return { backgroundSize: 'auto', animation: `tn-grad-hue ${speed}s linear infinite` };
+    case 'pulse': return { backgroundSize: 'auto', animation: `tn-grad-pulse ${speed}s ease-in-out infinite` };
+    case 'zoom': return { backgroundSize: '160% 160%', animation: `tn-grad-zoom ${speed}s ease-in-out infinite` };
+    default: return { backgroundSize: 'auto', animation: 'none' };
+  }
+}
+
+function animCSSBlock(anim: AnimMode, speed: number): string {
+  if (anim === 'none') return '';
+  const size = anim === 'wave' ? '300% 300%' : anim === 'shift' ? '200% 200%' : anim === 'zoom' ? '160% 160%' : '';
+  const timing = anim === 'hue' ? 'linear' : anim === 'shift' ? 'ease' : 'ease-in-out';
+  return `${size ? `background-size: ${size};\n` : ''}animation: tn-grad-${anim} ${speed}s ${timing} infinite;\n\n${ANIM_KEYFRAMES[anim]}`;
 }
 
 let stopId = 100;
@@ -28,7 +64,7 @@ const DEFAULT: GState = {
     { id: 2, color: '#c026d3', pos: 50 },
     { id: 3, color: '#3b82f6', pos: 100 },
   ],
-  animate: false,
+  anim: 'none',
   speed: 8,
 };
 
@@ -162,12 +198,38 @@ function buildCSS(g: GState): string {
 }
 
 function exportCSS(g: GState): string {
-  const bg = buildCSS(g);
-  let out = `background: ${bg};`;
-  if (g.animate) {
-    out += `\nbackground-size: 200% 200%;\nanimation: tn-gradient ${g.speed}s ease infinite;\n\n@keyframes tn-gradient {\n  0%, 100% { background-position: 0% 50%; }\n  50% { background-position: 100% 50%; }\n}`;
+  const out = `background-image: ${buildCSS(g)};`;
+  const anim = animCSSBlock(g.anim, g.speed);
+  return anim ? `${out}\n${anim}` : out;
+}
+
+function exportHTML(g: GState): string {
+  const anim = animCSSBlock(g.anim, g.speed);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ToolNest Gradient</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; }
+  .gradient-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background-image: ${buildCSS(g)};
+${anim ? anim.split('\n\n')[0].split('\n').map((l) => `    ${l}`).join('\n') : '' }
   }
-  return out;
+  h1 { color: #fff; font-size: clamp(28px, 6vw, 64px); text-shadow: 0 2px 24px rgba(0,0,0,.35); }
+${anim ? `  ${ANIM_KEYFRAMES[g.anim as Exclude<AnimMode, 'none'>].split('\n').join('\n  ')}` : ''}
+</style>
+</head>
+<body>
+  <div class="gradient-bg"></div>
+  <h1>Made with ToolNest</h1>
+</body>
+</html>`;
 }
 
 function exportTailwind(g: GState): string {
@@ -192,8 +254,9 @@ function exportJSON(g: GState): string {
 }
 
 function exportReact(g: GState): string {
-  const style = g.animate
-    ? `{\n  backgroundImage: '${buildCSS(g)}',\n  backgroundSize: '200% 200%',\n  animation: 'gradient ${g.speed}s ease infinite',\n}`
+  const a = animStyle(g.anim, g.speed);
+  const style = g.anim !== 'none'
+    ? `{\n  backgroundImage: '${buildCSS(g)}',\n  backgroundSize: '${a.backgroundSize}',\n  animation: '${a.animation}',\n}`
     : `{\n  backgroundImage: '${buildCSS(g)}',\n}`;
   return `const gradientStyle = ${style};\n\n<div style={gradientStyle} />`;
 }
@@ -258,15 +321,17 @@ function harmony(base: string, kind: 'complement' | 'analogous' | 'triadic' | 'm
 
 /* URL share: state <-> #g= base64 */
 function encodeState(g: GState): string {
-  return btoa(JSON.stringify({ t: g.type, a: g.angle, an: g.animate, sp: g.speed, s: g.stops.map((x) => [x.color, x.pos]) }));
+  return btoa(JSON.stringify({ t: g.type, a: g.angle, am: g.anim, sp: g.speed, s: g.stops.map((x) => [x.color, x.pos]) }));
 }
 
 function decodeState(hash: string): GState | null {
   try {
-    const j = JSON.parse(atob(hash)) as { t: GType; a: number; an: boolean; sp: number; s: [string, number][] };
+    const j = JSON.parse(atob(hash)) as { t: GType; a: number; an?: boolean; am?: AnimMode; sp: number; s: [string, number][] };
     if (!Array.isArray(j.s) || j.s.length < 2) return null;
     return {
-      type: j.t, angle: j.a || 0, animate: !!j.an, speed: j.sp || 8,
+      type: j.t, angle: j.a || 0,
+      anim: j.am ?? (j.an ? 'shift' : 'none'), // old links used a boolean
+      speed: j.sp || 8,
       stops: j.s.map(([color, pos]) => ({ id: nid(), color, pos })),
     };
   } catch {
@@ -300,7 +365,7 @@ const TYPES: Array<{ id: GType; label: string }> = [
   { id: 'mesh', label: 'Mesh' }, { id: 'aurora', label: 'Aurora' }, { id: 'noise', label: 'Noise' },
 ];
 
-const PREVIEWS = ['Canvas', 'Hero', 'Button', 'Card', 'Phone'] as const;
+const PREVIEWS = ['Canvas', 'Hero', 'Button', 'Card', 'Phone', 'Navbar', 'Login', 'Glass', 'Icon', 'Text'] as const;
 
 export default function GradientRunner() {
   const { toast } = useUI();
@@ -311,7 +376,7 @@ export default function GradientRunner() {
   const [aiBusy, setAiBusy] = useState(false);
   const [preview, setPreview] = useState<(typeof PREVIEWS)[number]>('Canvas');
   const [presetCat, setPresetCat] = useState('All');
-  const [exportTab, setExportTab] = useState<'css' | 'tailwind' | 'scss' | 'json' | 'react' | 'flutter' | 'swiftui'>('css');
+  const [exportTab, setExportTab] = useState<'css' | 'html' | 'tailwind' | 'scss' | 'json' | 'react' | 'flutter' | 'swiftui'>('css');
   const [pngSize, setPngSize] = useState(0);
   const [saved, setSaved] = useState<string[]>([]); // encoded states
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -495,12 +560,22 @@ export default function GradientRunner() {
   /* Exports */
   const exportText =
     exportTab === 'css' ? exportCSS(g) :
+    exportTab === 'html' ? exportHTML(g) :
     exportTab === 'tailwind' ? exportTailwind(g) :
     exportTab === 'scss' ? exportSCSS(g) :
     exportTab === 'react' ? exportReact(g) :
     exportTab === 'flutter' ? exportFlutter(g) :
     exportTab === 'swiftui' ? exportSwiftUI(g) :
     exportJSON(g);
+
+  const downloadHTML = () => {
+    const blob = new Blob([exportHTML(g)], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'toolnest-gradient.html';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
+  };
 
   const copy = (text: string, label: string) => {
     void navigator.clipboard.writeText(text);
@@ -567,8 +642,7 @@ export default function GradientRunner() {
   // `backgroundSize` makes React warn and mis-reconcile on re-render.
   const bgStyle: React.CSSProperties = {
     backgroundImage: css,
-    backgroundSize: g.animate ? '200% 200%' : 'auto',
-    animation: g.animate ? `tn-gradient-shift ${g.speed}s ease infinite` : 'none',
+    ...animStyle(g.anim, g.speed),
   };
 
   const presetCats = ['All', ...Array.from(new Set(PRESETS.map((p) => p.cat)))];
@@ -628,6 +702,43 @@ export default function GradientRunner() {
             {preview === 'Phone' && (
               <div className="grad-fill grad-center">
                 <div className="grad-phone-mock"><div style={bgStyle} /></div>
+              </div>
+            )}
+            {preview === 'Navbar' && (
+              <div className="grad-fill grad-navbar-page">
+                <div className="grad-navbar-mock" style={bgStyle}>
+                  <b style={{ color: bestText }}>ToolNest</b>
+                  <span style={{ color: bestText, opacity: 0.85 }}>Home · Tools · Pricing</span>
+                </div>
+                <div className="grad-navbar-body" />
+              </div>
+            )}
+            {preview === 'Login' && (
+              <div className="grad-fill grad-center" style={bgStyle}>
+                <div className="grad-login-mock">
+                  <b>Welcome back</b>
+                  <div className="grad-login-input" />
+                  <div className="grad-login-input" />
+                  <div className="grad-login-btn" style={bgStyle}><span style={{ color: bestText }}>Sign in</span></div>
+                </div>
+              </div>
+            )}
+            {preview === 'Glass' && (
+              <div className="grad-fill grad-center" style={bgStyle}>
+                <div className="grad-glass-mock">
+                  <b style={{ color: bestText }}>Glassmorphism</b>
+                  <span style={{ color: bestText, opacity: 0.8 }}>backdrop-filter: blur(18px)</span>
+                </div>
+              </div>
+            )}
+            {preview === 'Icon' && (
+              <div className="grad-fill grad-center">
+                <div className="grad-icon-mock" style={bgStyle}><span style={{ color: bestText }}>T</span></div>
+              </div>
+            )}
+            {preview === 'Text' && (
+              <div className="grad-fill grad-center">
+                <b className="grad-text-mock" style={{ backgroundImage: css }}>GRADIENT</b>
               </div>
             )}
           </div>
@@ -700,13 +811,15 @@ export default function GradientRunner() {
 
           {/* Animation */}
           <div className="field">
-            <label className="checkbox-row">
-              <input type="checkbox" checked={g.animate} onChange={(e) => apply((c) => ({ ...c, animate: e.target.checked }))} />
-              Animate gradient
-            </label>
-            {g.animate && (
+            <label>Animation</label>
+            <div className="atx-chips">
+              {ANIMS.map((a) => (
+                <button key={a.id} className={`atx-chip ${g.anim === a.id ? 'active' : ''}`} onClick={() => apply((c) => ({ ...c, anim: a.id }))}>{a.label}</button>
+              ))}
+            </div>
+            {g.anim !== 'none' && (
               <>
-                <label>Speed <span className="range-value">{g.speed}s loop</span></label>
+                <label style={{ marginTop: 8 }}>Speed <span className="range-value">{g.speed}s loop</span></label>
                 <input type="range" min={2} max={20} value={g.speed} onChange={(e) => apply((c) => ({ ...c, speed: +e.target.value }))} />
               </>
             )}
@@ -716,15 +829,18 @@ export default function GradientRunner() {
           <div className="field">
             <label>Export</label>
             <div className="atx-chips">
-              {(['css', 'tailwind', 'scss', 'react', 'flutter', 'swiftui', 'json'] as const).map((t) => (
+              {(['css', 'html', 'tailwind', 'scss', 'react', 'flutter', 'swiftui', 'json'] as const).map((t) => (
                 <button key={t} className={`atx-chip ${exportTab === t ? 'active' : ''}`} onClick={() => setExportTab(t)}>
-                  {t === 'swiftui' ? 'SwiftUI' : t === 'flutter' ? 'Flutter' : t === 'react' ? 'React' : t.toUpperCase()}
+                  {t === 'swiftui' ? 'SwiftUI' : t === 'flutter' ? 'Flutter' : t === 'react' ? 'React' : t === 'html' ? 'HTML+CSS' : t.toUpperCase()}
                 </button>
               ))}
             </div>
             <pre className="grad-code">{exportText}</pre>
             <div className="grad-stop-actions">
               <button className="btn btn-primary btn-sm" onClick={() => copy(exportText, exportTab.toUpperCase())}><Icon name="copy" size={13} /> Copy</button>
+              {exportTab === 'html' && (
+                <button className="btn btn-outline btn-sm" onClick={downloadHTML}><Icon name="download" size={13} /> .html file</button>
+              )}
               <select value={pngSize} onChange={(e) => setPngSize(+e.target.value)} aria-label="PNG size" style={{ fontSize: 12 }}>
                 {PNG_SIZES.map((s, i) => <option key={s.label} value={i}>{s.label}</option>)}
               </select>
