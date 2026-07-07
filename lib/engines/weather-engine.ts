@@ -87,6 +87,19 @@ export interface AstronomyInfo {
   solarNoon: string;
   dayLength: string;
   moonPhase: string;
+  moonIllumination: number;
+  moonEmoji: string;
+  moonrise?: string;
+  moonset?: string;
+}
+
+export interface WeatherAlert {
+  headline: string;
+  event: string;
+  severity: string;
+  areas: string;
+  desc: string;
+  effective?: string;
 }
 
 export interface WeatherBundle {
@@ -96,6 +109,7 @@ export interface WeatherBundle {
   daily: DailyForecast[];
   airQuality: AirQuality | null;
   astronomy: AstronomyInfo;
+  alerts: WeatherAlert[];
   fetchedAt: number;
 }
 
@@ -175,23 +189,30 @@ function aqiCategory(aqi: number): { status: string; recommendation: string } {
   return { status: 'Hazardous', recommendation: 'Stay indoors, use air purifier' };
 }
 
-function moonPhaseLabel(date: Date): string {
+function moonInfo(date: Date): { label: string; illumination: number; emoji: string } {
   const synodic = 29.530588853;
   const ref = new Date('2000-01-06T18:14:00Z').getTime();
-  const age = ((date.getTime() - ref) / 86400000) % synodic;
-  if (age < 1.85) return 'New Moon';
-  if (age < 7.38) return 'Waxing Crescent';
-  if (age < 11.07) return 'First Quarter';
-  if (age < 14.77) return 'Waxing Gibbous';
-  if (age < 18.45) return 'Full Moon';
-  if (age < 22.14) return 'Waning Gibbous';
-  if (age < 25.83) return 'Last Quarter';
-  return 'Waning Crescent';
+  let age = ((date.getTime() - ref) / 86400000) % synodic;
+  if (age < 0) age += synodic;
+  // Illuminated fraction of the disc: 0 at new, 100 at full.
+  const illumination = Math.round(((1 - Math.cos((2 * Math.PI * age) / synodic)) / 2) * 100);
+  let label: string;
+  let emoji: string;
+  if (age < 1.85) { label = 'New Moon'; emoji = '🌑'; }
+  else if (age < 7.38) { label = 'Waxing Crescent'; emoji = '🌒'; }
+  else if (age < 11.07) { label = 'First Quarter'; emoji = '🌓'; }
+  else if (age < 14.77) { label = 'Waxing Gibbous'; emoji = '🌔'; }
+  else if (age < 18.45) { label = 'Full Moon'; emoji = '🌕'; }
+  else if (age < 22.14) { label = 'Waning Gibbous'; emoji = '🌖'; }
+  else if (age < 25.83) { label = 'Last Quarter'; emoji = '🌗'; }
+  else { label = 'Waning Crescent'; emoji = '🌘'; }
+  return { label, illumination, emoji };
 }
 
 function buildAstronomy(sunrise: string, sunset: string): AstronomyInfo {
   const sr = new Date(sunrise);
   const ss = new Date(sunset);
+  const moon = moonInfo(sr);
   const noon = new Date((sr.getTime() + ss.getTime()) / 2);
   const dayMs = ss.getTime() - sr.getTime();
   const hrs = Math.floor(dayMs / 3600000);
@@ -206,7 +227,9 @@ function buildAstronomy(sunrise: string, sunset: string): AstronomyInfo {
     blueEvening: `${formatTime(sunset)} – ${addMinutes(sunset, 30)}`,
     solarNoon: formatTime(noon.toISOString()),
     dayLength: `${hrs}h ${mins}m`,
-    moonPhase: moonPhaseLabel(sr),
+    moonPhase: moon.label,
+    moonIllumination: moon.illumination,
+    moonEmoji: moon.emoji,
   };
 }
 
@@ -359,7 +382,25 @@ export async function fetchWeatherBundle(loc: WeatherLocation): Promise<WeatherB
 
   if (daily[0]) current.uv = daily[0].uvMax;
 
-  return { location: loc, current, hourly, daily, airQuality, astronomy, fetchedAt: Date.now() };
+  // Best-effort enrichment (moonrise/moonset + severe alerts) via WeatherAPI.
+  // Degrades silently if the WEATHERAPI_KEY env is not configured.
+  let alerts: WeatherAlert[] = [];
+  try {
+    const enrichRes = await fetch(`/api/weather/enrich?lat=${loc.lat}&lon=${loc.lon}`);
+    if (enrichRes.ok) {
+      const enr = await enrichRes.json() as {
+        success: boolean;
+        data?: { alerts: WeatherAlert[]; moonrise?: string; moonset?: string };
+      };
+      if (enr.success && enr.data) {
+        alerts = enr.data.alerts ?? [];
+        if (enr.data.moonrise) astronomy.moonrise = enr.data.moonrise;
+        if (enr.data.moonset) astronomy.moonset = enr.data.moonset;
+      }
+    }
+  } catch { /* enrichment is optional */ }
+
+  return { location: loc, current, hourly, daily, airQuality, astronomy, alerts, fetchedAt: Date.now() };
 }
 
 export async function detectGpsLocation(): Promise<WeatherLocation> {

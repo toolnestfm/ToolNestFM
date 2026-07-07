@@ -11,7 +11,6 @@ import {
   detectGpsLocation,
   generateWeatherSummary,
   generateClothingAdvice,
-  outdoorScore,
   getFavorites,
   getRecents,
   toggleFavorite,
@@ -20,8 +19,6 @@ import {
   bgPreset,
   windDirLabel,
 } from '@/lib/engines/weather-engine';
-
-type Tab = 'overview' | 'hourly' | 'daily' | 'aqi' | 'astro' | 'ai';
 
 const WEATHER_EMOJI: Record<WeatherIconKey, string> = {
   clear: '☀️',
@@ -40,16 +37,45 @@ function formatHour(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatDay(date: string): string {
-  return new Date(date + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
 function aqiColor(aqi: number): string {
   if (aqi <= 50) return 'var(--success-green)';
   if (aqi <= 100) return '#eab308';
   if (aqi <= 150) return '#f97316';
   if (aqi <= 200) return '#ef4444';
   return '#991b1b';
+}
+
+function uvLabel(uv: number): string {
+  if (uv <= 2) return 'Low';
+  if (uv <= 5) return 'Moderate';
+  if (uv <= 7) return 'High';
+  if (uv <= 10) return 'Very High';
+  return 'Extreme';
+}
+
+function scoreLabel(score: number): { label: string; color: string } {
+  if (score >= 70) return { label: 'Good', color: 'var(--success-green)' };
+  if (score >= 45) return { label: 'Moderate', color: '#eab308' };
+  return { label: 'Poor', color: '#f97316' };
+}
+
+/** Deterministic outdoor-activity scores from temp/wind/rain/aqi. */
+function activityIndex(b: WeatherBundle): Array<{ name: string; icon: string; score: number }> {
+  const t = b.current.tempC;
+  const wind = b.current.windKph;
+  const rain = b.hourly.slice(0, 6).reduce((m, h) => Math.max(m, h.precipProb), 0);
+  const aqi = b.airQuality?.aqi ?? 40;
+  const clamp = (n: number) => Math.max(5, Math.min(100, Math.round(n)));
+  const tempComfort = (ideal: number, spread: number) => 100 - Math.abs(t - ideal) * (100 / spread);
+  const aqiPenalty = aqi <= 50 ? 0 : (aqi - 50) * 0.5;
+  const rainPenalty = rain * 0.6;
+  return [
+    { name: 'Running', icon: '🏃', score: clamp(tempComfort(16, 22) - wind * 0.8 - rainPenalty - aqiPenalty) },
+    { name: 'Cycling', icon: '🚴', score: clamp(tempComfort(20, 24) - wind * 1.1 - rainPenalty - aqiPenalty) },
+    { name: 'Hiking', icon: '🥾', score: clamp(tempComfort(18, 26) - wind * 0.5 - rainPenalty * 0.8 - aqiPenalty) },
+    { name: 'Fishing', icon: '🎣', score: clamp(tempComfort(22, 30) - wind * 0.7 - rainPenalty * 0.4) },
+    { name: 'Camping', icon: '⛺', score: clamp(tempComfort(21, 28) - wind * 0.9 - rainPenalty - aqiPenalty * 0.5) },
+  ];
 }
 
 export default function WeatherRunner() {
@@ -59,7 +85,6 @@ export default function WeatherRunner() {
   const [bundle, setBundle] = useState<WeatherBundle | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<Tab>('overview');
   const [favorites, setFavorites] = useState<WeatherLocation[]>([]);
   const [recents, setRecents] = useState<WeatherLocation[]>([]);
   const [fav, setFav] = useState(false);
@@ -163,22 +188,13 @@ export default function WeatherRunner() {
   };
 
   useEffect(() => {
-    if (tab === 'ai' && bundle && !aiSummary && !aiLoading) void loadAi();
+    if (bundle && !aiSummary && !aiLoading) void loadAi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, bundle]);
+  }, [bundle]);
 
-  const outdoor = bundle ? outdoorScore(bundle) : null;
   const clothing = bundle ? generateClothingAdvice(bundle) : '';
   const bgClass = bundle ? bgPreset(bundle.current.icon) : 'wx-bg-cloudy';
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'hourly', label: 'Hourly' },
-    { id: 'daily', label: '7-Day' },
-    { id: 'aqi', label: 'Air Quality' },
-    { id: 'astro', label: 'Astronomy' },
-    { id: 'ai', label: 'AI Insights' },
-  ];
+  const activities = bundle ? activityIndex(bundle) : [];
 
   return (
     <div className={`weather-tool ${bgClass}`}>
@@ -296,177 +312,188 @@ export default function WeatherRunner() {
                   {fav ? '★' : '☆'}
                 </button>
               </div>
-              <div className="weather-hero-main">
-                <span className="weather-emoji" aria-hidden>{WEATHER_EMOJI[bundle.current.icon]}</span>
-                <div>
-                  <span className="weather-temp">{Math.round(bundle.current.tempC)}°</span>
-                  <p className="weather-condition">{bundle.current.condition}</p>
-                  <p className="weather-feels">Feels like {Math.round(bundle.current.feelsLikeC)}°C</p>
+              <div className="weather-hero-body">
+                <div className="weather-hero-main">
+                  <span className="weather-emoji" aria-hidden>{WEATHER_EMOJI[bundle.current.icon]}</span>
+                  <div>
+                    <span className="weather-temp">{Math.round(bundle.current.tempC)}<sup>°C</sup></span>
+                    <p className="weather-condition">{bundle.current.condition}</p>
+                    <p className="weather-feels">Feels like {Math.round(bundle.current.feelsLikeC)}°C</p>
+                  </div>
+                </div>
+
+                {/* Moon panel inset (like the mockup) */}
+                <div className="weather-moon-panel">
+                  <div className="weather-moon-row">
+                    <span>🌅 Sunrise</span><b>{bundle.astronomy.sunrise}</b>
+                  </div>
+                  <div className="weather-moon-row">
+                    <span>🌇 Sunset</span><b>{bundle.astronomy.sunset}</b>
+                  </div>
+                  {bundle.astronomy.moonrise && (
+                    <div className="weather-moon-row"><span>🌘 Moonrise</span><b>{bundle.astronomy.moonrise}</b></div>
+                  )}
+                  {bundle.astronomy.moonset && (
+                    <div className="weather-moon-row"><span>🌒 Moonset</span><b>{bundle.astronomy.moonset}</b></div>
+                  )}
+                  <div className="weather-moon-phase">
+                    <span className="weather-moon-emoji" aria-hidden>{bundle.astronomy.moonEmoji}</span>
+                    <div>
+                      <b>{bundle.astronomy.moonPhase}</b>
+                      <span>{bundle.astronomy.moonIllumination}% illuminated</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* mini stat row */}
+              <div className="weather-hero-mini">
+                {bundle.airQuality && (
+                  <div className="weather-mini">
+                    <span className="weather-mini-badge" style={{ background: aqiColor(bundle.airQuality.aqi) }}>{bundle.airQuality.aqi}</span>
+                    <div><b>AQI</b><span>{bundle.airQuality.status}</span></div>
+                  </div>
+                )}
+                <div className="weather-mini">
+                  <span className="weather-mini-ic">☀️</span>
+                  <div><b>UV {bundle.current.uv ?? bundle.daily[0]?.uvMax ?? '—'}</b><span>{uvLabel(bundle.current.uv ?? bundle.daily[0]?.uvMax ?? 0)}</span></div>
+                </div>
+                <div className="weather-mini">
+                  <span className="weather-mini-ic">💨</span>
+                  <div><b>{Math.round(bundle.current.windKph)} km/h</b><span>{windDirLabel(bundle.current.windDir)}</span></div>
                 </div>
               </div>
             </div>
 
-            {/* Tabs */}
-            <div className="weather-tabs" role="tablist">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === t.id}
-                  className={tab === t.id ? 'active' : ''}
-                  onClick={() => setTab(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab panels */}
-            <div className="weather-panel">
-              {tab === 'overview' && (
-                <div className="weather-stats">
-                  {[
-                    { label: 'Humidity', value: `${bundle.current.humidity}%`, icon: 'cloud' },
-                    { label: 'Wind', value: `${Math.round(bundle.current.windKph)} km/h ${windDirLabel(bundle.current.windDir)}`, icon: 'zap' },
-                    { label: 'Pressure', value: `${Math.round(bundle.current.pressureMb)} hPa`, icon: 'settings' },
-                    { label: 'Clouds', value: `${bundle.current.cloudPct}%`, icon: 'cloud' },
-                    { label: 'UV Index', value: String(bundle.current.uv ?? bundle.daily[0]?.uvMax ?? '—'), icon: 'sun' },
-                    { label: 'Precip', value: `${bundle.current.precipMm} mm`, icon: 'cloud' },
-                  ].map((s) => (
-                    <div key={s.label} className="weather-stat">
-                      <Icon name={s.icon} size={18} />
-                      <span className="weather-stat-label">{s.label}</span>
-                      <span className="weather-stat-value">{s.value}</span>
+            {/* Dashboard grid */}
+            <div className="weather-grid">
+              {/* Alerts */}
+              {bundle.alerts.length > 0 && (
+                <div className="weather-card weather-alert-card">
+                  <h3 className="weather-card-h"><span className="weather-alert-ic">⚠️</span> Weather Alert</h3>
+                  {bundle.alerts.slice(0, 2).map((a, i) => (
+                    <div key={i} className="weather-alert">
+                      <b>{a.event}</b>
+                      {a.areas && <span className="weather-alert-area">{a.areas}</span>}
+                      <p>{a.headline}</p>
                     </div>
                   ))}
                 </div>
               )}
 
-              {tab === 'hourly' && (
+              {/* Hourly */}
+              <div className="weather-card weather-hourly-card">
+                <h3 className="weather-card-h">Hourly Forecast</h3>
                 <div className="weather-hourly-scroll">
-                  {bundle.hourly.map((h) => (
-                    <div key={h.time} className="weather-hour-card">
-                      <span>{formatHour(h.time)}</span>
+                  {bundle.hourly.slice(0, 24).map((h, i) => (
+                    <div key={h.time} className={`weather-hour-card${i === 0 ? ' now' : ''}`}>
+                      <span>{i === 0 ? 'Now' : formatHour(h.time)}</span>
                       <span className="weather-hour-emoji">{WEATHER_EMOJI[h.icon]}</span>
                       <strong>{Math.round(h.tempC)}°</strong>
-                      <span className="weather-hour-rain">{h.precipProb}%</span>
+                      <span className="weather-hour-rain">💧 {h.precipProb}%</span>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
 
-              {tab === 'daily' && (
-                <div className="weather-daily-list">
-                  {bundle.daily.map((d) => (
-                    <div key={d.date} className="weather-day-row">
-                      <span className="weather-day-name">{formatDay(d.date)}</span>
-                      <span>{WEATHER_EMOJI[d.icon]}</span>
-                      <span className="weather-day-rain">💧 {d.precipProbMax}%</span>
-                      <span className="weather-day-temps">
-                        <span className="weather-tmax">{Math.round(d.tempMaxC)}°</span>
-                        <span className="weather-tmin">{Math.round(d.tempMinC)}°</span>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {tab === 'aqi' && (
-                bundle.airQuality ? (
-                  <div className="weather-aqi">
-                    <div className="weather-aqi-gauge" style={{ '--aqi-color': aqiColor(bundle.airQuality.aqi) } as React.CSSProperties}>
+              {/* AQI */}
+              {bundle.airQuality && (
+                <div className="weather-card weather-aqi-card">
+                  <h3 className="weather-card-h">Air Quality Index</h3>
+                  <div className="weather-aqi-body">
+                    <div className="weather-aqi-gauge" style={{ '--aqi-color': aqiColor(bundle.airQuality.aqi), '--aqi-color-deg': `${Math.min(360, (bundle.airQuality.aqi / 300) * 360)}deg` } as React.CSSProperties}>
                       <span className="weather-aqi-num">{bundle.airQuality.aqi}</span>
                       <span className="weather-aqi-status">{bundle.airQuality.status}</span>
                     </div>
-                    <p className="weather-aqi-rec">{bundle.airQuality.recommendation}</p>
                     <div className="weather-pollutants">
                       {[
-                        { label: 'PM2.5', value: bundle.airQuality.pm25, unit: 'µg/m³' },
-                        { label: 'PM10', value: bundle.airQuality.pm10, unit: 'µg/m³' },
-                        { label: 'O₃', value: bundle.airQuality.ozone, unit: 'µg/m³' },
-                        { label: 'NO₂', value: bundle.airQuality.no2, unit: 'µg/m³' },
+                        { label: 'PM2.5', value: bundle.airQuality.pm25 },
+                        { label: 'PM10', value: bundle.airQuality.pm10 },
+                        { label: 'O₃', value: bundle.airQuality.ozone },
+                        { label: 'NO₂', value: bundle.airQuality.no2 },
                       ].map((p) => (
                         <div key={p.label} className="weather-pollutant">
                           <span>{p.label}</span>
-                          <strong>{p.value.toFixed(1)} {p.unit}</strong>
+                          <b>{Math.round(p.value)}</b>
                         </div>
                       ))}
                     </div>
                   </div>
-                ) : (
-                  <p className="weather-muted">Air quality data unavailable for this location.</p>
-                )
-              )}
-
-              {tab === 'astro' && (
-                <div className="weather-astro">
-                  <div className="weather-astro-row">
-                    <span>🌅 Sunrise</span>
-                    <strong>{bundle.astronomy.sunrise}</strong>
-                  </div>
-                  <div className="weather-astro-row">
-                    <span>🌇 Sunset</span>
-                    <strong>{bundle.astronomy.sunset}</strong>
-                  </div>
-                  <div className="weather-astro-row">
-                    <span>☀️ Solar noon</span>
-                    <strong>{bundle.astronomy.solarNoon}</strong>
-                  </div>
-                  <div className="weather-astro-row">
-                    <span>Day length</span>
-                    <strong>{bundle.astronomy.dayLength}</strong>
-                  </div>
-                  <div className="weather-astro-row">
-                    <span>🌙 Moon phase</span>
-                    <strong>{bundle.astronomy.moonPhase}</strong>
-                  </div>
-                  <div className="weather-astro-section">
-                    <p className="weather-astro-title">Golden hour</p>
-                    <p>Morning: {bundle.astronomy.goldenMorning}</p>
-                    <p>Evening: {bundle.astronomy.goldenEvening}</p>
-                  </div>
-                  <div className="weather-astro-section">
-                    <p className="weather-astro-title">Blue hour</p>
-                    <p>Morning: {bundle.astronomy.blueMorning}</p>
-                    <p>Evening: {bundle.astronomy.blueEvening}</p>
-                  </div>
+                  <p className="weather-aqi-rec">{bundle.airQuality.recommendation}</p>
                 </div>
               )}
 
-              {tab === 'ai' && (
-                <div className="weather-ai">
-                  {aiLoading && <p className="weather-loading">Generating AI insights…</p>}
-                  {aiSummary && (
-                    <div className="weather-ai-card">
-                      <p className="weather-ai-label">✨ AI Summary</p>
-                      <p>{aiSummary}</p>
+              {/* 7-day */}
+              <div className="weather-card weather-daily-card">
+                <h3 className="weather-card-h">7-Day Forecast</h3>
+                <div className="weather-daily-strip">
+                  {bundle.daily.map((d, i) => (
+                    <div key={d.date} className="weather-dday">
+                      <span className="weather-dow">{i === 0 ? 'Today' : new Date(d.date + 'T12:00:00').toLocaleDateString([], { weekday: 'short' })}</span>
+                      <span className="weather-dom">{new Date(d.date + 'T12:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
+                      <span className="weather-day-emoji">{WEATHER_EMOJI[d.icon]}</span>
+                      <span className="weather-day-temps"><b>{Math.round(d.tempMaxC)}°</b> <em>{Math.round(d.tempMinC)}°</em></span>
+                      <span className="weather-day-rain">💧 {d.precipProbMax}%</span>
                     </div>
-                  )}
-                  {outdoor && (
-                    <div className="weather-ai-card">
-                      <p className="weather-ai-label">Outdoor score</p>
-                      <div className="weather-outdoor">
-                        <span className="weather-outdoor-score" style={{ color: outdoor.score >= 60 ? 'var(--success-green)' : '#f97316' }}>
-                          {outdoor.score}/100
-                        </span>
-                        <span>{outdoor.reason}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI summary */}
+              <div className="weather-card weather-ai-card">
+                <h3 className="weather-card-h">✨ AI Weather Summary <span className="weather-beta">BETA</span></h3>
+                {aiLoading && <p className="weather-loading">Generating…</p>}
+                {aiSummary && <p className="weather-ai-text">{aiSummary}</p>}
+                {clothing && <p className="weather-ai-clothing">👕 {clothing}</p>}
+                <button type="button" className="btn btn-ghost btn-sm mt-2" onClick={() => { setAiSummary(''); void loadAi(); }}>Regenerate</button>
+              </div>
+
+              {/* Outdoor activity index */}
+              <div className="weather-card weather-activity-card">
+                <h3 className="weather-card-h">Outdoor Activity Index</h3>
+                <div className="weather-activities">
+                  {activities.map((a) => {
+                    const s = scoreLabel(a.score);
+                    return (
+                      <div key={a.name} className="weather-activity">
+                        <span className="weather-act-ic">{a.icon}</span>
+                        <span className="weather-act-name">{a.name}</span>
+                        <b style={{ color: s.color }}>{a.score}</b>
+                        <span className="weather-act-label" style={{ color: s.color }}>{s.label}</span>
                       </div>
-                    </div>
-                  )}
-                  <div className="weather-ai-card">
-                    <p className="weather-ai-label">👕 Clothing</p>
-                    <p>{clothing}</p>
-                  </div>
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAiSummary(''); void loadAi(); }}>
-                    Regenerate AI summary
-                  </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+
+              {/* Details */}
+              <div className="weather-card weather-details-card">
+                <h3 className="weather-card-h">Details</h3>
+                <div className="weather-details">
+                  {[
+                    { ic: '💧', label: 'Humidity', value: `${bundle.current.humidity}%` },
+                    { ic: '💨', label: 'Wind', value: `${Math.round(bundle.current.windKph)} km/h ${windDirLabel(bundle.current.windDir)}` },
+                    { ic: '🌡️', label: 'Pressure', value: `${Math.round(bundle.current.pressureMb)} mb` },
+                    { ic: '☁️', label: 'Cloud Cover', value: `${bundle.current.cloudPct}%` },
+                    { ic: '☀️', label: 'UV Index', value: `${bundle.current.uv ?? bundle.daily[0]?.uvMax ?? '—'} · ${uvLabel(bundle.current.uv ?? bundle.daily[0]?.uvMax ?? 0)}` },
+                    { ic: '🌇', label: 'Day length', value: bundle.astronomy.dayLength },
+                  ].map((d) => (
+                    <div key={d.label} className="weather-detail">
+                      <span className="weather-detail-ic">{d.ic}</span>
+                      <span className="weather-detail-label">{d.label}</span>
+                      <b className="weather-detail-val">{d.value}</b>
+                    </div>
+                  ))}
+                </div>
+                <div className="weather-golden">
+                  <span>🌅 Golden hour: {bundle.astronomy.goldenMorning} · {bundle.astronomy.goldenEvening}</span>
+                </div>
+              </div>
             </div>
 
             <p className="weather-credit">
-              Powered by <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · No API key required
+              Powered by <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a>
+              {bundle.alerts.length >= 0 ? ' + WeatherAPI' : ''} · free, no signup
             </p>
           </>
         )}
