@@ -699,10 +699,6 @@ export default function WeatherRunner() {
               <Icon name="bell" size={18} />
               {bundle && bundle.alerts.length > 0 && <span className="wxp-bell-dot">{bundle.alerts.length}</span>}
             </button>
-            <div className="wxp-avatar">
-              <span className="wxp-avatar-img">FM</span>
-              <div className="wxp-avatar-meta"><b>Faruk Mondal</b><span className="wxp-pro">PRO</span></div>
-            </div>
           </div>
         </header>
 
