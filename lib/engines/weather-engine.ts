@@ -266,12 +266,35 @@ export async function searchLocations(query: string): Promise<WeatherLocation[]>
   }));
 }
 
+/** Lightweight current-conditions fetch for favorite-city list tiles. */
+export interface QuickCurrent {
+  tempC: number;
+  icon: WeatherIconKey;
+  condition: string;
+}
+
+export async function fetchCurrentTemp(loc: WeatherLocation): Promise<QuickCurrent> {
+  const params = new URLSearchParams({
+    latitude: String(loc.lat),
+    longitude: String(loc.lon),
+    timezone: 'auto',
+    current: 'temperature_2m,weather_code,is_day',
+  });
+  const res = await fetch(`${FORECAST_URL}?${params}`);
+  if (!res.ok) throw new Error('Quick weather unavailable');
+  const data = await res.json() as { current: Record<string, number> };
+  const code = Number(data.current.weather_code);
+  const isDay = Number(data.current.is_day) === 1;
+  const info = wmoInfo(code, isDay);
+  return { tempC: Number(data.current.temperature_2m), icon: info.icon, condition: info.label };
+}
+
 export async function fetchWeatherBundle(loc: WeatherLocation): Promise<WeatherBundle> {
   const fp = new URLSearchParams({
     latitude: String(loc.lat),
     longitude: String(loc.lon),
     timezone: 'auto',
-    forecast_days: '7',
+    forecast_days: '14',
     current: [
       'temperature_2m', 'relative_humidity_2m', 'apparent_temperature', 'is_day',
       'precipitation', 'weather_code', 'cloud_cover', 'pressure_msl',
